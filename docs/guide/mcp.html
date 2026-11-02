@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>@xlvane/mcp (MCP server) - xlvane</title>
+<meta name="description" content="@xlvane/mcp (MCP server) of xlvane 1.2.0, an XLSX library.">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../style.css">
+
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="bar">
+    <a class="brand" href="../index.html"><span class="logo" aria-hidden="true"></span>xlvane</a>
+    <span class="version" title="Version on npm">1.2.0</span>
+    <nav class="main-nav" aria-label="Main"><a href="../guide/index.html" aria-current="page">Guide</a><a href="../demo/index.html">Demo</a><a href="../changelog.html">Changelog</a><a href="https://github.com/DevXord/xlvane">GitHub</a><a href="https://www.npmjs.com/package/xlvane">npm</a></nav>
+  </div>
+</header>
+<div class="layout with-toc">
+<nav class="toc" aria-label="On this page"><p class="toc-title">On this page</p><ul><li class="toc-2"><a href="#start">Start</a></li><li class="toc-2"><a href="#tools">Tools</a></li><li class="toc-2"><a href="#security">Security</a></li><li class="toc-2"><a href="#api">API</a></li><li class="toc-2"><a href="#links">Links</a></li></ul></nav>
+<main id="main">
+<nav class="guide-nav" aria-label="Guide"><a href="index.html">Guide</a><a href="compat.html">@xlvane/compat</a><a href="mcp.html" aria-current="page">@xlvane/mcp (MCP server)</a><a href="errors.html">Errors and warnings</a><a href="inspect-json.html">inspect() report</a><a href="cli-json.html">Command line JSON</a><a href="exceljs-compat.html">exceljs compatibility</a><a href="agent-skill.html">Agent Skill</a></nav><article class="doc"><h1 id="xlvanemcp"><a class="anchor" href="#xlvanemcp" aria-hidden="true">#</a>@xlvane/mcp</h1>
+<p>An MCP (Model Context Protocol) server for XLSX files, built on <a href="https://www.npmjs.com/package/xlvane">xlvane</a> and the official MCP TypeScript SDK (<code>@modelcontextprotocol/server</code> 2.4.0, protocol revision 2026-07-28). An MCP client, such as a coding agent, can inspect, read, compare and validate workbooks, and optionally write, edit and convert them, through tools instead of code.</p>
+<p>Requires Node.js 22 or later. Dependencies: <code>xlvane</code> and <code>@modelcontextprotocol/server</code> (which brings <code>@modelcontextprotocol/core</code> and <code>zod</code>).</p>
+<h2 id="start"><a class="anchor" href="#start" aria-hidden="true">#</a>Start</h2>
+<pre><code class="language-sh">npx @xlvane/mcp --root ./data                 # read-only, files inside ./data
+npx @xlvane/mcp --root ./data --allow-write   # also write_table, edit_cells, convert
+xlvane mcp --root ./data                      # the same server, through the xlvane CLI</code></pre>
+<p>Many MCP clients take a configuration like this one; check your client&#39;s documentation for its exact format and file:</p>
+<pre><code class="language-json">{
+  &quot;mcpServers&quot;: {
+    &quot;xlvane&quot;: { &quot;command&quot;: &quot;npx&quot;, &quot;args&quot;: [&quot;@xlvane/mcp&quot;, &quot;--root&quot;, &quot;/absolute/path/to/data&quot;] }
+  }
+}</code></pre>
+<div class="table"><table><thead><tr><th>Option</th><th>Meaning</th></tr></thead><tbody><tr><td><code>--root &lt;dir&gt;</code></td><td>A directory the tools may use; repeat for several. Required. Relative paths in tool calls are resolved against the first one.</td></tr><tr><td><code>--allow-write</code></td><td>Also offer the tools that write files. Without it they are not registered at all.</td></tr><tr><td><code>--max-file-size &lt;bytes&gt;</code></td><td>Largest file read or written. Default 64 MiB.</td></tr><tr><td><code>--max-rows &lt;n&gt;</code></td><td>Largest number of rows one <code>read_table</code> call returns. Default 1000.</td></tr><tr><td><code>--max-response-chars &lt;n&gt;</code></td><td>Largest tool result (also an error), in characters of its JSON text; the message carries the same data again as <code>structuredContent</code>. <code>read_table</code> returns the rows that fit (<code>truncated</code>, <code>nextOffset</code>); other tools return <code>XLV_E_LIMIT_EXCEEDED</code>. Default 1 Mi (1 048 576).</td></tr></tbody></table></div>
+<p>The server speaks MCP over stdin and stdout; messages for people go to stderr.</p>
+<h2 id="tools"><a class="anchor" href="#tools" aria-hidden="true">#</a>Tools</h2>
+<div class="table"><table><thead><tr><th>Tool</th><th>Writes</th><th>What it does</th></tr></thead><tbody><tr><td><code>inspect_workbook</code></td><td>no</td><td>Sheets (also hidden ones), used ranges, header rows, column types with samples, merged cells, formulas, warnings.</td></tr><tr><td><code>read_table</code></td><td>no</td><td>Rows of a sheet as objects keyed by the header row; paging with <code>offset</code> and <code>limit</code>; dates as ISO 8601.</td></tr><tr><td><code>diff</code></td><td>no</td><td>Cell-by-cell differences between two workbooks.</td></tr><tr><td><code>validate</code></td><td>no</td><td>Read warnings, and column rules (<code>name</code>, <code>type</code>, <code>optional</code>) with the cell of each problem.</td></tr><tr><td><code>write_table</code></td><td>yes</td><td>Rows to a new XLSX file (report preset: bold header, frozen row, autofilter, widths).</td></tr><tr><td><code>edit_cells</code></td><td>yes</td><td>Set cells and append rows, keeping the rest of the file unchanged.</td></tr><tr><td><code>convert</code></td><td>yes</td><td>XLSX to CSV/TSV/JSON and back; CSV output escapes formula-like text.</td></tr></tbody></table></div>
+<p>Every tool has a JSON Schema for its input and returns its result as <code>structuredContent</code> and as JSON text. Errors are tool results with <code>isError: true</code> and the <code>XlvError</code> data: a stable <code>code</code>, the <code>location</code>, a <code>hint</code> and <code>details</code> (docs/errors.md).</p>
+<h2 id="security"><a class="anchor" href="#security" aria-hidden="true">#</a>Security</h2>
+<ul><li><strong>Directories:</strong> files are read and written only inside the <code>--root</code> directories. Paths are checked after symbolic links are resolved, so <code>..</code>, absolute paths and links that lead outside are refused (<code>XLV_E_PATH_NOT_ALLOWED</code>). A file is checked again after it is opened (the path must still lead to the same file), so swapping it for a link meanwhile does not help. Writing through a symbolic link is refused. A path outside the roots gets the same answer whether or not something exists there. Only regular files are read.</li><li><strong>Read-only by default:</strong> the write tools exist only with <code>--allow-write</code>. They create files exclusively and replace an existing file only when the call passes <code>&quot;overwrite&quot;: true</code>, through a temporary file and a rename; the replacement keeps the file&#39;s permissions, and read-only files are not replaced. Any file name inside a root may be written, also dot files such as <code>.gitignore</code>; choose the roots accordingly.</li><li><strong>Limits:</strong> files above <code>--max-file-size</code> are refused for reading and writing, and results above <code>--max-response-chars</code> are cut (<code>read_table</code>) or refused. The xlvane reader applies its limits for untrusted files (ZIP bombs, XML without DTDs or entities, the budgets of xlvane 1.1.1). <code>validate</code> lists at most 1 000 problems (<code>problemsTotal</code> counts all).</li><li><strong>File content is data:</strong> values, sheet names and other text come from the files and may contain any text, also text meant to influence a model. The server returns it as data and does not interpret it.</li><li><strong>No code execution:</strong> macros are never run, external links are never followed, and formulas are not calculated.</li></ul>
+<h2 id="api"><a class="anchor" href="#api" aria-hidden="true">#</a>API</h2>
+<pre><code class="language-ts">import { createServer, runCli } from &#39;@xlvane/mcp&#39;;</code></pre>
+<p><code>createServer({ roots, allowWrite, maxFileBytes, maxRows, maxResponseChars })</code> returns an <code>McpServer</code> to connect to any transport; <code>runCli(args)</code> is the command line.</p>
+<h2 id="links"><a class="anchor" href="#links" aria-hidden="true">#</a>Links</h2>
+<ul><li>Changes in each version: <a href="../changelog.html">CHANGELOG.md</a></li><li>Bugs and questions: <a href="https://github.com/DevXord/xlvane/issues">GitHub issues</a></li><li>Reporting a vulnerability: <a href="https://github.com/DevXord/xlvane/blob/main/SECURITY.md">SECURITY.md</a></li></ul>
+<p>License: MIT. The MCP SDK is licensed under Apache-2.0.</p><p class="source">Source: <a href="https://github.com/DevXord/xlvane/blob/v1.2.0/packages/mcp/README.md">packages/mcp/README.md</a> (version 1.2.0)</p></article>
+</main>
+</div>
+<footer class="site-footer">
+  <p>xlvane 1.2.0, MIT License. Pages built from the package published on npm. <a href="https://github.com/DevXord/xlvane">Source on GitHub</a> · <a href="https://github.com/DevXord/xlvane/blob/main/SECURITY.md">Reporting a vulnerability</a></p>
+</footer>
+</body>
+</html>

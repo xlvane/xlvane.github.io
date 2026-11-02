@@ -1,7 +1,7 @@
 // Builds the site into docs/ (published by GitHub Pages from the main branch, /docs folder) from
 // the packages published on npm and the changelog of the release tag:
 //   node scripts/build.mjs --version 1.1.0
-// The documentation pages are the Markdown files of the xlvane and @xlvane/compat packages, so the
+// The documentation pages are the Markdown files of the xlvane, @xlvane/compat and @xlvane/mcp packages, so the
 // site shows exactly the documentation of that version. The demo uses the package's own browser
 // code (dist/) and fflate's browser build, copied into docs/vendor/.
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -44,6 +44,7 @@ if (!version || !/^\d+\.\d+\.\d+$/.test(version)) {
 const PAGES = [
   { repo: 'packages/xlvane/README.md', pkg: 'xlvane', file: 'README.md', out: 'guide/index.html', title: 'Guide' },
   { repo: 'packages/compat/README.md', pkg: '@xlvane/compat', file: 'README.md', out: 'guide/compat.html', title: '@xlvane/compat' },
+  { repo: 'packages/mcp/README.md', pkg: '@xlvane/mcp', file: 'README.md', out: 'guide/mcp.html', title: '@xlvane/mcp (MCP server)' },
   { repo: 'docs/errors.md', pkg: 'xlvane', file: 'docs/errors.md', out: 'guide/errors.html', title: 'Errors and warnings' },
   { repo: 'docs/inspect-json.md', pkg: 'xlvane', file: 'docs/inspect-json.md', out: 'guide/inspect-json.html', title: 'inspect() report' },
   { repo: 'docs/cli-json.md', pkg: 'xlvane', file: 'docs/cli-json.md', out: 'guide/cli-json.html', title: 'Command line JSON' },
@@ -54,7 +55,7 @@ const PAGES = [
 const PAGE_BY_REPO = new Map(PAGES.map((p) => [p.repo, p.out]));
 PAGE_BY_REPO.set('README.md', 'index.html');
 
-const [core, compat] = await Promise.all([fetchPackage('xlvane', version), fetchPackage('@xlvane/compat', version)]);
+const [core, compat, mcp] = await Promise.all([fetchPackage('xlvane', version), fetchPackage('@xlvane/compat', version), fetchPackage('@xlvane/mcp', version)]);
 // The newest fflate that xlvane's dependency range allows, as npm would install it (a caret range
 // such as ^0.8.3: same major, or same minor for 0.x).
 const fflateRange = JSON.parse(new TextDecoder().decode(core.files.get('package.json'))).dependencies.fflate;
@@ -62,6 +63,7 @@ const fflateVersion = await newestInRange('fflate', fflateRange);
 const fflatePkg = await fetchPackage('fflate', fflateVersion);
 locked('xlvane', version, core.integrity);
 locked('@xlvane/compat', version, compat.integrity);
+locked('@xlvane/mcp', version, mcp.integrity);
 locked('fflate', fflateVersion, fflatePkg.integrity);
 writeFileSync(LOCK, `${JSON.stringify(lock, null, 2)}\n`);
 const changelogResponse = await fetch(`https://raw.githubusercontent.com/DevXord/xlvane/v${version}/CHANGELOG.md`);
@@ -73,7 +75,8 @@ const text = (files, path) => {
   if (!data) throw new Error(`${path} is missing from the package.`);
   return new TextDecoder().decode(data);
 };
-const source = (p) => (p.pkg === null ? changelog : text(p.pkg === 'xlvane' ? core.files : compat.files, p.file));
+const FILES = { xlvane: core.files, '@xlvane/compat': compat.files, '@xlvane/mcp': mcp.files };
+const source = (p) => (p.pkg === null ? changelog : text(FILES[p.pkg], p.file));
 
 /** A link of a document, mapped to a page of the site (relative to `from`) or to GitHub. */
 function linker(repoPath, from) {
@@ -184,7 +187,7 @@ write(
 );
 
 if (!existsSync(join(OUT, 'index.html'))) throw new Error('index.html was not written');
-console.log(`docs/: xlvane ${version}, @xlvane/compat ${version}, fflate ${fflateVersion}; ${String(PAGES.length + 2)} pages.`);
+console.log(`docs/: xlvane ${version}, @xlvane/compat ${version}, @xlvane/mcp ${version}, fflate ${fflateVersion}; ${String(PAGES.length + 2)} pages.`);
 
 /** The newest published version that a caret range (^X.Y.Z) allows; other ranges are refused. */
 async function newestInRange(name, range) {

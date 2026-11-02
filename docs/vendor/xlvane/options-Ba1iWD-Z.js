@@ -50,7 +50,9 @@ const ERROR_CODES = [
 	"XLV_E_CSV_MALFORMED",
 	"XLV_E_NOT_SUPPORTED",
 	"XLV_E_USAGE",
-	"XLV_E_INTERNAL"
+	"XLV_E_NOT_INSTALLED",
+	"XLV_E_INTERNAL",
+	"XLV_E_PATH_NOT_ALLOWED"
 ];
 /**
 * Every warning code xlvane can report. Warnings never stop reading; they describe something
@@ -521,7 +523,7 @@ var Parser = class {
 				const dashes = s.indexOf("--", Math.max(at + 4, this.tokenFrom));
 				done = dashes !== -1 && dashes + 2 < length;
 				if (!done) {
-					this.tokenFrom = Math.max(at + 4, length - 1);
+					this.tokenFrom = dashes !== -1 ? dashes : Math.max(at + 4, length - 1);
 					if (length - (at + 4) > this.options.limits.maxXmlTextLength + 2) this.limit("maxXmlTextLength", COMMENT_TOO_LONG, at);
 				}
 			} else if (length - at < 9) done = false;
