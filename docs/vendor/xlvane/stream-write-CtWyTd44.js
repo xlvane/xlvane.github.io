@@ -1,4 +1,4 @@
-import { $t as resolveImage, A as limitExceeded, C as Bytes, D as TAIL_BYTES, Dt as normalizeTable, E as NotLoaded, En as XlvError, Et as TABLE_CONTENT_TYPE, F as validateLocalHeaders, Ft as normalizeStyle, Ht as printXml, I as WarningCollector, Jt as IMAGE_CONTENT_TYPES, K as SheetRels, L as sheetNotFound, N as readCentralDirectory, O as checkSource$1, Ot as checkDefinedName, P as unsupported, Q as createSharedStrings, Qt as metricsOf, R as createWorksheetParser, Rt as DEFAULT_READ_LIMITS, S as workbookPartsToLoad, St as openPackage, T as HEAD_BYTES, Ut as sheetProtectionXml, Vt as printNames, X as cellXml, Xt as drawingParts, Y as buildStyles, Yt as MediaParts, Z as contentTypesXml, _ as isoDate, _n as createXmlByteStreamParser, _t as FormulaGroups, a as DATE_FORMAT, an as columnLetters, ct as sheetHead, d as convertCellInput, dn as CORE_PROPERTIES_PART, dt as sheetTail, f as createWorkbook, fn as appPropertiesXml, gt as workbookXml, h as detectHeader, ht as workbookRelsXml, i as readOptions, in as MAX_ROWS, it as noteParts, j as locateCentralDirectory, k as corrupt, kt as checkUniqueName, lt as sheetRelsPartName, n as oneOfOption, nt as hyperlinksXml, o as DATE_TIME_FORMAT, on as formatCellRef, ot as rootRelsXml, p as sortedNotes, pn as corePropertiesXml, pt as tableParts, qt as DRAWING_CONTENT_TYPE, rn as MAX_COLUMNS, rt as nameTitles, st as rowStart, tn as classifyRelationship, u as checkBookViews, un as APP_PROPERTIES_PART, ut as sheetRulesXml, v as analyzeWorkbook, w as CORRUPT_HINT, y as readNotes, yt as crc32, zt as resolveLimits } from "./options-CwSp2pA4.js";
+import { $t as metricsOf, A as limitExceeded, Bt as resolveLimits, C as Bytes, D as TAIL_BYTES, Dt as normalizeTable, E as NotLoaded, Et as TABLE_CONTENT_TYPE, F as validateLocalHeaders, Ft as normalizeStyle, Ht as printNames, I as WarningCollector, Jt as DRAWING_CONTENT_TYPE, K as SheetRels, L as sheetNotFound, N as readCentralDirectory, O as checkSource$1, On as XlvError, Ot as checkDefinedName, P as unsupported, Q as createSharedStrings, R as createWorksheetParser, Rt as DEFAULT_READ_LIMITS, S as workbookPartsToLoad, St as openPackage, T as HEAD_BYTES, Ut as printXml, Wt as sheetProtectionXml, X as cellXml, Xt as MediaParts, Y as buildStyles, Yt as IMAGE_CONTENT_TYPES, Z as contentTypesXml, Zt as drawingParts, _ as isoDate, _t as FormulaGroups, a as DATE_FORMAT, an as MAX_COLUMNS, cn as formatCellRef, ct as sheetHead, d as convertCellInput, dt as sheetTail, en as resolveImage, f as createWorkbook, fn as APP_PROPERTIES_PART, gt as workbookXml, h as detectHeader, hn as corePropertiesXml, ht as workbookRelsXml, i as readOptions, it as noteParts, j as locateCentralDirectory, k as corrupt, kt as checkUniqueName, lt as sheetRelsPartName, mn as appPropertiesXml, n as oneOfOption, nt as hyperlinksXml, o as DATE_TIME_FORMAT, on as MAX_ROWS, ot as rootRelsXml, p as sortedNotes, pn as CORE_PROPERTIES_PART, pt as tableParts, rn as classifyRelationship, rt as nameTitles, sn as columnLetters, st as rowStart, u as checkBookViews, ut as sheetRulesXml, v as analyzeWorkbook, w as CORRUPT_HINT, wt as partKey, y as readNotes, yn as createXmlByteStreamParser, yt as crc32, zt as checkOutputPositions } from "./options-Ba6r4zP1.js";
 import { Deflate, Inflate } from "../fflate/browser.js";
 // src/zip/stream.ts
 /**
@@ -78,7 +78,7 @@ async function openZipSource(source, limits) {
 	const dir = await withLoading(b, src, () => locateCentralDirectory(b, limits));
 	if (!b.has(dir.centralOffset, dir.centralLimit) && dir.centralLimit > dir.centralOffset) b.add(dir.centralOffset, await src.read(dir.centralOffset, dir.centralLimit));
 	const entries = await withLoading(b, src, () => readCentralDirectory(b, dir.centralOffset, dir.centralLimit, dir.entryCount));
-	for (const entry of entries) {
+	for (const entry of [...entries].sort((x, y) => x.headerOffset - y.headerOffset)) {
 		const at = entry.headerOffset;
 		if (at + 30 > dir.centralOffset || b.has(at, at + 30)) continue;
 		const fixed = await src.read(at, at + 30);
@@ -503,9 +503,9 @@ async function openWorkbookStream(source, options) {
 		if (entry.kind !== "worksheet" || entry.part === null) return [];
 		const cached = noteCache.get(entry.part);
 		if (cached !== void 0) return cached;
-		const parts = pkg.relationships(entry.part).filter((r) => !r.external && ["comments", "vmlDrawing"].includes(classifyRelationship(r.type)?.name ?? "") && pkg.hasPart(r.target));
+		const parts = pkg.relationships(entry.part).filter((r) => !r.external && ["comments", "vmlDrawing"].includes(classifyRelationship(r.type)?.name ?? "") && pkg.hasPart(r.target) && !entry.foreignParts.has(partKey(r.target)));
 		if (parts.length > 0) await preloaded.load(parts.map((r) => zipName(r.target)));
-		const notes = Object.freeze(readNotes(pkg, entry.part, entry.name, limits, warnings));
+		const notes = Object.freeze(readNotes(pkg, entry.part, entry.name, limits, warnings, entry.foreignParts));
 		noteCache.set(entry.part, notes);
 		return notes;
 	}
@@ -538,7 +538,8 @@ async function openWorkbookStream(source, options) {
 			conformance: info.conformance,
 			budget: {
 				remaining: Infinity,
-				sharedText: limits.maxSharedStringChars
+				sharedText: limits.maxSharedStringChars,
+				formulaText: limits.maxSharedStringChars
 			},
 			formatCache
 		}, (number, cells, rowInfo, styledCells) => ready.push({
@@ -638,6 +639,7 @@ async function* readTableStream(source, options) {
 	}
 	const limits = o.get("limits");
 	const book = await openWorkbookStream(source, limits === void 0 ? void 0 : { limits });
+	const outputCells = limits?.maxCells ?? DEFAULT_READ_LIMITS.maxCells;
 	const sheetName = o.get("sheet") ?? (book.sheets.find((s) => s.kind === "worksheet" && s.state === "visible") ?? book.sheets[0])?.name;
 	if (sheetName === void 0) return;
 	const buffered = [];
@@ -659,17 +661,25 @@ async function* readTableStream(source, options) {
 			headerRow = header;
 		}
 		const source = headerRow === null ? nonEmpty.flatMap((r) => r.cells) : nonEmpty.find((r) => r.number === headerRow)?.cells ?? [];
-		const minCol = Math.min(...source.map((c) => c.col));
-		const maxCol = Math.max(...source.map((c) => c.col));
+		let minCol = Infinity;
+		let maxCol = -Infinity;
+		for (const c of source) {
+			if (c.col < minCol) minCol = c.col;
+			if (c.col > maxCol) maxCol = c.col;
+		}
+		const headerCells = new Map(headerRow === null ? [] : source.map((c) => [c.col, c]));
 		const out = [];
 		const used = /* @__PURE__ */ new Set();
+		const nextSuffix = /* @__PURE__ */ new Map();
 		for (let col = minCol; col <= maxCol; col++) {
 			const letter = columnLetters(col);
-			const cell = headerRow === null ? void 0 : source.find((c) => c.col === col);
+			const cell = headerCells.get(col);
 			const text = cell === void 0 || cell.value === null ? null : cell.value instanceof Date ? isoDate(cell.value) : String(cell.value);
 			const base = text === null || text.trim() === "" ? letter : text.trim();
 			let key = base;
-			for (let n = 2; used.has(key); n++) key = `${base}_${String(n)}`;
+			let n = nextSuffix.get(base) ?? 2;
+			while (used.has(key)) key = `${base}_${String(n++)}`;
+			nextSuffix.set(base, n);
 			used.add(key);
 			out.push({
 				key,
@@ -680,8 +690,13 @@ async function* readTableStream(source, options) {
 		}
 		return out;
 	};
+	let positions = 0;
+	let cellsRead = 0;
 	const emit = async (r, cols) => {
 		if (headerRow !== null && r.number <= headerRow) return null;
+		cellsRead += r.cells.length;
+		positions += cols.length;
+		checkOutputPositions(positions, cellsRead, outputCells, "The table", sheetName);
 		const byCol = new Map(r.cells.map((c) => [c.col, c]));
 		if (cols.every((c) => byCol.get(c.col)?.value == null)) return null;
 		const row = {};

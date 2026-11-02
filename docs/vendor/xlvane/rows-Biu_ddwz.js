@@ -1,4 +1,4 @@
-import { $ as fillXml, At as EMPTY_STYLES, B as tokenize, Bt as suggest, Cn as escapeText, Ct as relationshipsPartName, En as XlvError, Ft as normalizeStyle, G as DEFAULT_FONT, H as X14_DV_URI, I as WarningCollector, It as stableKey, J as borderXml, Lt as isDateFormat, M as openZip, Mt as READING_ORDERS, Nt as checkStyleCount, Pt as mergeStyles, Rt as DEFAULT_READ_LIMITS, Sn as escapeAttr, St as openPackage, Tt as zipNameToPartName, V as X14_CF_URI, _ as isoDate, an as columnLetters, at as reusableBuiltinNumFmt, b as readWorkbook, bn as parseXml, bt as parseIsoDateTime, cn as parseCellRef, en as SML_NS, et as fontXml, f as createWorkbook, ft as stringItemXml, gn as parseXmlTree, h as detectHeader, hn as childrenNamed, i as readOptions, in as MAX_ROWS, jt as parseStyles, ln as parseRange, m as writeWorkbook, mn as childNamed, mt as textElement, n as oneOfOption, nn as relationshipTypes, on as formatCellRef, q as attr, r as openInput, rn as MAX_COLUMNS, sn as formatRange, t as booleanOption, tn as classifyRelationship, tt as formatNumber, vn as decodeXml, vt as writeZip, wt as partKey, x as toBytes, xn as encodeXstring, xt as parseSharedStrings, yn as normalizeLineEnds, z as shiftFormula, zt as resolveLimits } from "./options-CwSp2pA4.js";
+import { $ as fillXml, At as EMPTY_STYLES, B as tokenize, Bt as resolveLimits, Cn as encodeXstring, Ct as relationshipsPartName, Ft as normalizeStyle, G as DEFAULT_FONT, H as X14_DV_URI, I as WarningCollector, It as stableKey, J as borderXml, Lt as isDateFormat, M as openZip, Mt as READING_ORDERS, Nt as checkStyleCount, On as XlvError, Pt as mergeStyles, Rt as DEFAULT_READ_LIMITS, Sn as parseXml, St as openPackage, Tn as escapeText, Tt as zipNameToPartName, V as X14_CF_URI, Vt as suggest, _ as isoDate, _n as childrenNamed, an as MAX_COLUMNS, at as reusableBuiltinNumFmt, b as readWorkbook, bn as decodeXml, bt as parseIsoDateTime, cn as formatCellRef, dn as parseRange, et as fontXml, f as createWorkbook, ft as stringItemXml, gn as childNamed, h as detectHeader, i as readOptions, in as relationshipTypes, jt as parseStyles, ln as formatRange, m as writeWorkbook, mt as textElement, n as oneOfOption, nn as SML_NS, on as MAX_ROWS, q as attr, r as openInput, rn as classifyRelationship, sn as columnLetters, t as booleanOption, tn as REL_NS, tt as formatNumber, un as parseCellRef, vn as parseXmlTree, vt as writeZip, wn as escapeAttr, wt as partKey, x as toBytes, xn as normalizeLineEnds, xt as parseSharedStrings, z as shiftFormula, zt as checkOutputPositions } from "./options-Ba6r4zP1.js";
 // src/table.ts
 const READ_OPTIONS = [
 	"sheet",
@@ -106,6 +106,7 @@ function pickTable(workbook, o) {
 }
 function prepare(input, options) {
 	const o = readOptions(options, READ_OPTIONS, "readTable options");
+	const limits = resolveLimits(o.get("limits"));
 	const workbook = openInput(input, o.get("limits"), o.get("onWarning"));
 	const table = pickTable(workbook, o);
 	const sheet = table?.sheet ?? pickSheet(workbook, o.get("sheet"));
@@ -173,13 +174,16 @@ function prepare(input, options) {
 	}
 	const columns = [];
 	const used = /* @__PURE__ */ new Set();
+	const nextSuffix = /* @__PURE__ */ new Map();
 	const headerCells = headerRow === null ? void 0 : byRow.get(headerRow);
 	for (let col = minCol; col <= maxCol; col++) {
 		const letter = columnLetters(col);
 		const header = headerRow === null ? null : headerText(headerCells?.get(col));
 		const base = header === null || header.trim() === "" ? letter : header.trim();
 		let key = base;
-		for (let n = 2; used.has(key); n++) key = `${base}_${String(n)}`;
+		let n = nextSuffix.get(base) ?? 2;
+		while (used.has(key)) key = `${base}_${String(n++)}`;
+		nextSuffix.set(base, n);
 		used.add(key);
 		columns.push({
 			key,
@@ -192,6 +196,9 @@ function prepare(input, options) {
 	const rowNumbers = [];
 	const first = headerRow === null ? minRow : headerRow + 1;
 	const numbers = skipEmpty ? [...byRow.keys()].filter((r) => r >= first && r <= maxRow).sort((a, b) => a - b) : rangeOf(first, maxRow);
+	let cellCount = 0;
+	for (const cells of byRow.values()) cellCount += cells.size;
+	checkOutputPositions(numbers.length * columns.length, cellCount, limits.maxCells, "The table", sheet.name);
 	for (const r of numbers) {
 		const cells = byRow.get(r);
 		if (skipEmpty && (cells === void 0 || [...cells.values()].every((c) => c.value === null))) continue;
@@ -549,7 +556,11 @@ function fromJSON(input, options) {
 	return writeTable(rows, options);
 }
 // src/csv.ts
-/** First characters that make spreadsheet applications treat a CSV field as a formula (CSV-10). */
+/**
+* First characters that make spreadsheet applications treat a CSV field as a formula (CSV-10),
+* plus, as a precaution, the small forms of = + - @ (CSV-12, D-H01). Text starting with any other
+* C0 control character is escaped too (see `injectionStart`).
+*/
 const INJECTION_START = /* @__PURE__ */ new Set([
 	"=",
 	"+",
@@ -561,8 +572,14 @@ const INJECTION_START = /* @__PURE__ */ new Set([
 	"＝",
 	"＋",
 	"－",
-	"＠"
+	"＠",
+	"﹦",
+	"﹢",
+	"﹣",
+	"﹫"
 ]);
+/** Whether text starting with `c` is escaped: one of INJECTION_START or a C0 control (NUL included). */
+const injectionStart = (c) => INJECTION_START.has(c) || c.charCodeAt(0) < 32;
 /**
 * Converts a sheet to CSV text. Fields that contain the delimiter, a quote, CR or LF are
 * enclosed in quotes, and quotes are doubled (RFC 4180). Numbers are written in JavaScript's
@@ -598,6 +615,7 @@ function toCSV(input, options) {
 	const newline = oneOfOption("newline", o.get("newline"), ["\r\n", "\n"], "\r\n");
 	const bom = booleanOption("bom", o.get("bom"), false);
 	const injection = oneOfOption("formulaInjection", o.get("formulaInjection"), ["escape", "off"], "escape");
+	const limits = resolveLimits(o.get("limits"));
 	const sheet = pickSheet(openInput(input, o.get("limits"), o.get("onWarning")), o.get("sheet"));
 	let startRow = 1;
 	let startCol = 1;
@@ -617,6 +635,16 @@ function toCSV(input, options) {
 		if (cell.row > endRow) endRow = cell.row;
 		if (cell.col > endCol) endCol = cell.col;
 	}
+	const byRow = /* @__PURE__ */ new Map();
+	let cellCount = 0;
+	for (const cell of sheet.cells()) {
+		if (cell.row < startRow || cell.row > endRow || cell.col < startCol || cell.col > endCol) continue;
+		let r = byRow.get(cell.row);
+		if (r === void 0) byRow.set(cell.row, r = /* @__PURE__ */ new Map());
+		r.set(cell.col, cell.value);
+		cellCount++;
+	}
+	if (endRow >= startRow && endCol >= startCol) checkOutputPositions((endRow - startRow + 1) * (endCol - startCol + 1), cellCount, limits.maxCells, "The CSV text", sheet.name);
 	const needsQuotes = (s) => s.includes(delimiter) || s.includes("\"") || s.includes("\r") || s.includes("\n");
 	const field = (value) => {
 		if (value === null || value === void 0) return "";
@@ -625,7 +653,7 @@ function toCSV(input, options) {
 		if (value instanceof Date) return isoDate(value);
 		let s = String(value);
 		let quote = needsQuotes(s);
-		if (injection === "escape" && s.length > 0 && INJECTION_START.has(s[0] ?? "")) {
+		if (injection === "escape" && s.length > 0 && injectionStart(s[0] ?? "")) {
 			s = `'${s}`;
 			quote = true;
 		}
@@ -634,10 +662,8 @@ function toCSV(input, options) {
 	const lines = [];
 	for (let r = startRow; r <= endRow; r++) {
 		const fields = [];
-		for (let c = startCol; c <= endCol; c++) {
-			const cell = sheet.cell(formatCellRef(r, c));
-			fields.push(field(cell?.value));
-		}
+		const cells = byRow.get(r);
+		for (let c = startCol; c <= endCol; c++) fields.push(field(cells?.get(c)));
 		lines.push(fields.join(delimiter));
 	}
 	const body = lines.length === 0 ? "" : lines.join(newline) + newline;
@@ -3255,8 +3281,25 @@ function eachVmlShape(text, change) {
 	out.push(text.slice(pos));
 	return out.join("");
 }
+/**
+* Finds the first `drawing` and `legacyDrawing` elements of the worksheet (SpreadsheetML
+* namespace, any depth, so also inside `mc:AlternateContent`) with the element scanner, so that
+* comments are skipped and the time is linear in the part's size (D-H01); the id is the
+* attribute `id` in the relationships namespace, whatever its prefix.
+*/
+function drawingIds(text, part, limits) {
+	const { elements } = scan(text, part, limits, (local, depth, _parent, ns) => depth >= 2 && (local === "drawing" || local === "legacyDrawing") && (ns === SML_NS.transitional || ns === SML_NS.strict));
+	const idOf = (local) => {
+		const e = elements.find((x) => x.local === local);
+		return e?.attrs.get(`{${REL_NS.transitional}}id`) ?? e?.attrs.get(`{${REL_NS.strict}}id`);
+	};
+	return {
+		drawing: idOf("drawing"),
+		legacyDrawing: idOf("legacyDrawing")
+	};
+}
 /** Rewrites the notes of the changed sheet: the Comments part and the note shapes of its VML part. */
-function rewriteNotes(edit, pkg, sheetPart, sheetText, sheet, c) {
+function rewriteNotes(edit, pkg, sheetPart, ids, sheet, c) {
 	const rels = pkg.relationships(sheetPart);
 	const comments = rels.find((r) => !r.external && classifyRelationship(r.type)?.name === "comments");
 	if (comments !== void 0) {
@@ -3282,7 +3325,7 @@ function rewriteNotes(edit, pkg, sheetPart, sheetText, sheet, c) {
 			if (edits.length > 0) edit.write(comments.target, applyEdits(text, edits));
 		}
 	}
-	const id = /<(?:[A-Za-z_][\w.-]*:)?legacyDrawing\b[^>]*?\br:id\s*=\s*["']([^"']*)["']/.exec(sheetText)?.[1];
+	const id = ids.legacyDrawing;
 	const vml = id === void 0 ? void 0 : rels.find((r) => r.id === id && !r.external);
 	if (vml === void 0) return;
 	const text = edit.text(vml.target);
@@ -3318,8 +3361,8 @@ function rewriteNotes(edit, pkg, sheetPart, sheetText, sheet, c) {
 * rows. Drawings with charts, shapes, groups or other objects are refused, and so is a deletion
 * that would cut a picture (a deleted row inside the rows it covers or under its anchor cell).
 */
-function rewriteDrawing(edit, pkg, sheetPart, sheetText, sheet, c) {
-	const id = /<(?:[A-Za-z_][\w.-]*:)?drawing\b[^>]*?\br:id\s*=\s*["']([^"']*)["']/.exec(sheetText)?.[1];
+function rewriteDrawing(edit, pkg, sheetPart, ids, sheet, c) {
+	const id = ids.drawing;
 	const rels = pkg.relationships(sheetPart);
 	const rel = id === void 0 ? void 0 : rels.find((r) => r.id === id && !r.external && classifyRelationship(r.type)?.name === "drawing");
 	if (rel === void 0) return;
@@ -3573,8 +3616,9 @@ function changeRows(input, sheetName, at, count, style, limits) {
 		if (out.text !== text) edit.write(s.part, out.text);
 		rewriteTables(edit, pkg, s.part, s, c, target);
 		if (target) {
-			rewriteNotes(edit, pkg, s.part, text, s, c);
-			rewriteDrawing(edit, pkg, s.part, text, s, c);
+			const ids = drawingIds(text, s.part, edit.limits);
+			rewriteNotes(edit, pkg, s.part, ids, s, c);
+			rewriteDrawing(edit, pkg, s.part, ids, s, c);
 		}
 	}
 	rewriteNames(edit, workbookPart, c);

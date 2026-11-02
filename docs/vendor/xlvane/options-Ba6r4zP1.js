@@ -73,13 +73,15 @@ const WARNING_CODES = [
 	"XLV_W_DUPLICATE_CELL",
 	"XLV_W_INVALID_VALUE",
 	"XLV_W_SHEET_PART_MISSING",
+	"XLV_W_SHEET_PART_SHARED",
 	"XLV_W_PART_MISSING",
 	"XLV_W_FORMULAS_NOT_RECALCULATED",
 	"XLV_W_INVALID_CELL_REF",
 	"XLV_W_UNUSUAL_HYPERLINK",
 	"XLV_W_THREADED_COMMENTS",
 	"XLV_W_DRAWING_CONTENT_NOT_READ",
-	"XLV_W_MERGED_CELL_WRITE"
+	"XLV_W_MERGED_CELL_WRITE",
+	"XLV_W_LIMIT_REACHED"
 ];
 /**
 * The only error type thrown by xlvane for problems with input files or options. It says what
@@ -332,6 +334,8 @@ function createXmlStreamParser(handler, options) {
 		}
 	};
 }
+const COMMENT_TOO_LONG = "Comment is longer than the limit.";
+const PI_TOO_LONG = "Processing instruction is longer than the limit.";
 /** Consumed input is dropped once at least this many characters can go (amortises copying). */
 const COMPACT_THRESHOLD = 65536;
 var Parser = class {
@@ -363,13 +367,23 @@ var Parser = class {
 	tokenAt = -1;
 	tokenFrom = 0;
 	tokenQuote = 0;
+	/** Offset of the quote that opened the attribute value being searched. */
+	tokenQuoteAt = 0;
+	/**
+	* Pieces held back while the unconsumed input is long (a long token or text run), joined to `s`
+	* once they are at least as long as it. Appending every piece to `s` and searching it again
+	* made a long token cost time quadratic in its length; joining at doubling sizes keeps the
+	* total work linear (D-H01).
+	*/
+	held = [];
+	heldLength = 0;
 	constructor(handler, options, whole) {
 		this.handler = handler;
 		this.options = options;
 		this.whole = whole;
 	}
 	get buffered() {
-		return this.s.length - this.pos + this.textBuffer.length;
+		return this.s.length - this.pos + this.heldLength + this.textBuffer.length;
 	}
 	write(chunk) {
 		if (this.ended) throw new Error("XML stream parser: write() after end().");
@@ -389,24 +403,36 @@ var Parser = class {
 			}
 		}
 		if (text.length === 0) return;
+		if (this.whole) {
+			this.append(text);
+			return;
+		}
+		this.held.push(text);
+		this.heldLength += text.length;
+		if (this.heldLength < this.s.length - this.pos) return;
+		this.appendHeld();
+		this.pump(false);
+		this.compact();
+	}
+	append(text) {
 		const from = this.s.length;
 		this.s += text;
 		this.checkCharacters(from);
-		if (!this.whole) {
-			this.pump(false);
-			this.compact();
-		}
+	}
+	appendHeld() {
+		if (this.held.length === 0) return;
+		const text = this.held.length === 1 ? this.held[0] ?? "" : this.held.join("");
+		this.held = [];
+		this.heldLength = 0;
+		this.append(text);
 	}
 	end() {
 		if (this.ended) return;
 		const tail = this.pendingHigh + (this.pendingCR ? "\n" : "");
 		this.pendingCR = false;
 		this.pendingHigh = "";
-		if (tail.length > 0) {
-			const from = this.s.length;
-			this.s += tail;
-			this.checkCharacters(from);
-		}
+		this.appendHeld();
+		if (tail.length > 0) this.append(tail);
 		this.ended = true;
 		this.pump(true);
 	}
@@ -428,6 +454,7 @@ var Parser = class {
 		if (this.tokenAt !== -1) {
 			this.tokenAt -= drop;
 			this.tokenFrom -= drop;
+			this.tokenQuoteAt -= drop;
 		}
 	}
 	/**
@@ -440,7 +467,10 @@ var Parser = class {
 		if (!this.declarationChecked) {
 			if (s.length - this.pos < 6 && !final) return;
 			if (s.startsWith("<?xml", this.pos) && (s.length === 5 || isWhitespace(s.charCodeAt(5)) || s.charCodeAt(5) === QUESTION)) {
-				if (!final && s.indexOf("?>", this.pos + 2) === -1) return;
+				if (!final && s.indexOf("?>", this.pos + 2) === -1) {
+					if (s.length - this.pos - 2 > this.options.limits.maxXmlTextLength + 1) this.limit("maxXmlTextLength", PI_TOO_LONG, this.pos);
+					return;
+				}
 				this.declarationChecked = true;
 				this.skipProcessingInstruction(true);
 			}
@@ -490,15 +520,24 @@ var Parser = class {
 			if (length - at >= 4 && s.startsWith("<!--", at)) {
 				const dashes = s.indexOf("--", Math.max(at + 4, this.tokenFrom));
 				done = dashes !== -1 && dashes + 2 < length;
-				if (!done) this.tokenFrom = Math.max(at + 4, length - 1);
+				if (!done) {
+					this.tokenFrom = Math.max(at + 4, length - 1);
+					if (length - (at + 4) > this.options.limits.maxXmlTextLength + 2) this.limit("maxXmlTextLength", COMMENT_TOO_LONG, at);
+				}
 			} else if (length - at < 9) done = false;
 			else if (s.startsWith("<![CDATA[", at)) {
 				done = s.indexOf("]]>", Math.max(at + 9, this.tokenFrom)) !== -1;
-				if (!done) this.tokenFrom = Math.max(at + 9, length - 2);
+				if (!done) {
+					this.tokenFrom = Math.max(at + 9, length - 2);
+					if (this.textBuffer.length + length - (at + 9) > this.options.limits.maxXmlTextLength + 2) this.limit("maxXmlTextLength", "Text node is longer than the limit.", at);
+				}
 			} else done = true;
 		} else if (next === QUESTION) {
 			done = s.indexOf("?>", Math.max(at + 2, this.tokenFrom)) !== -1;
-			if (!done) this.tokenFrom = Math.max(at + 2, length - 1);
+			if (!done) {
+				this.tokenFrom = Math.max(at + 2, length - 1);
+				if (length - (at + 2) > this.options.limits.maxXmlTextLength + 1) this.limit("maxXmlTextLength", PI_TOO_LONG, at);
+			}
 		} else if (next === SLASH$1) {
 			done = s.indexOf(">", Math.max(at + 2, this.tokenFrom)) !== -1;
 			if (!done) this.tokenFrom = length;
@@ -510,14 +549,17 @@ var Parser = class {
 				const c = s.charCodeAt(i);
 				if (quote !== 0) {
 					if (c === quote) quote = 0;
-				} else if (c === QUOTE || c === APOS) quote = c;
-				else if (c === GT) {
+				} else if (c === QUOTE || c === APOS) {
+					quote = c;
+					this.tokenQuoteAt = i;
+				} else if (c === GT) {
 					done = true;
 					break;
 				}
 			}
 			this.tokenFrom = i;
 			this.tokenQuote = quote;
+			if (!done && quote !== 0 && i - (this.tokenQuoteAt + 1) > this.options.limits.maxXmlTextLength) this.limit("maxXmlTextLength", `Value of attribute "${this.attributeNameBefore(this.tokenQuoteAt)}" is longer than the limit.`, this.tokenQuoteAt + 1);
 		}
 		if (done) this.tokenAt = -1;
 		return done;
@@ -532,7 +574,13 @@ var Parser = class {
 		if (s.length - this.pos <= this.options.limits.maxXmlTextLength) return;
 		let cut = s.length;
 		const amp = s.indexOf("&", Math.max(this.pos, s.lastIndexOf(";") + 1));
-		if (amp !== -1) cut = amp;
+		if (amp !== -1) {
+			cut = amp;
+			if (s.length - amp > this.options.limits.maxXmlNameLength + 12) {
+				if (s.charCodeAt(amp + 1) !== HASH) this.limit("maxXmlNameLength", "Entity name is longer than the limit.", amp);
+				this.fail("\"&\" must start an entity or character reference ending with \";\".", amp);
+			}
+		}
 		while (cut > this.pos && s.charCodeAt(cut - 1) === 93 && cut > s.length - 2) cut--;
 		if (cut <= this.pos) return;
 		if (this.segmentStart === -1) {
@@ -865,6 +913,7 @@ var Parser = class {
 	skipComment() {
 		const start = this.pos;
 		const end = this.s.indexOf("--", start + 4);
+		if ((end === -1 ? this.s.length : end) - (start + 4) > this.options.limits.maxXmlTextLength) this.limit("maxXmlTextLength", COMMENT_TOO_LONG, start);
 		if (end === -1) this.fail("Comment is not terminated.", start);
 		if (this.s.charCodeAt(end + 2) !== GT) this.fail("\"--\" is not allowed inside a comment.", end);
 		this.pos = end + 3;
@@ -875,6 +924,7 @@ var Parser = class {
 		const target = this.readName();
 		if (!declaration && target.toLowerCase() === "xml") this.fail("The XML declaration is allowed only at the very start of the document.", start);
 		const end = this.s.indexOf("?>", this.pos);
+		if ((end === -1 ? this.s.length : end) - (start + 2) > this.options.limits.maxXmlTextLength) this.limit("maxXmlTextLength", PI_TOO_LONG, start);
 		if (end === -1) this.fail("Processing instruction is not terminated.", start);
 		const c = this.s.charCodeAt(this.pos);
 		if (this.pos !== end && !isWhitespace(c)) this.fail("Invalid processing instruction target.", start);
@@ -910,6 +960,17 @@ var Parser = class {
 			location: this.location(offset),
 			hint: "The part is not well-formed XML. Re-save the file in a spreadsheet application; if it was generated by a program, report the problem to its authors."
 		});
+	}
+	/** The attribute name before `name = "` whose quote is at `quote` (for a message). */
+	attributeNameBefore(quote) {
+		const s = this.s;
+		let i = quote - 1;
+		while (i >= 0 && isWhitespace(s.charCodeAt(i))) i--;
+		if (s.charCodeAt(i) === EQ) i--;
+		while (i >= 0 && isWhitespace(s.charCodeAt(i))) i--;
+		const end = i + 1;
+		while (i >= 0 && end - i <= this.options.limits.maxXmlNameLength && !isWhitespace(s.charCodeAt(i)) && s.charCodeAt(i) !== 60) i--;
+		return s.slice(i + 1, end);
 	}
 	limit(limit, message, offset) {
 		const details = {
@@ -984,8 +1045,16 @@ function createXmlByteStreamParser(handler, options) {
 	let decoder = null;
 	/** Bytes held until the encoding is known (at most the first two). */
 	let head = /* @__PURE__ */ new Uint8Array(0);
-	/** Decoded text held until the XML declaration can be checked. */
-	let pending = "";
+	/**
+	* Decoded pieces held until the XML declaration can be checked (null once it has been), with
+	* their length, their first five characters and whether "?>" has been seen. Each piece is
+	* searched once, so a long declaration costs linear time (D-H01).
+	*/
+	let pending = [];
+	let pendingLength = 0;
+	let pendingHead = "";
+	let pendingLast = "";
+	let declarationEnd = false;
 	const encodingError = (cause) => new XlvError("XLV_E_XML_ENCODING", `The part is not valid ${(encoding ?? "utf-8").toUpperCase()}.`, {
 		location: { part },
 		hint: "Office Open XML parts must be encoded in UTF-8 or UTF-16. Re-save the file in a spreadsheet application.",
@@ -1004,9 +1073,30 @@ function createXmlByteStreamParser(handler, options) {
 			if (chunk.length > 0) text.write(chunk);
 			return;
 		}
-		pending += chunk;
-		if (!(pending.length >= 5 && (!pending.startsWith("<?xml") || pending.indexOf("?>") !== -1)) && !final) return;
-		const declared = declaredEncoding(pending);
+		if (chunk.length > 0) {
+			pending.push(chunk);
+			pendingLength += chunk.length;
+			if (pendingHead.length < 5) pendingHead += chunk.slice(0, 5 - pendingHead.length);
+			declarationEnd ||= (pendingLast + chunk).includes("?>");
+			pendingLast = chunk.slice(-1);
+		}
+		const known = pendingLength >= 5 && (!pendingHead.startsWith("<?xml") || declarationEnd);
+		if (!known && pendingLength - 2 > options.limits.maxXmlTextLength + 1) throw new XlvError("XLV_E_LIMIT_EXCEEDED", PI_TOO_LONG, {
+			location: {
+				part,
+				line: 1,
+				column: 1
+			},
+			hint: `If you trust this file, raise the limit, for example { limits: { maxXmlTextLength: ${String(options.limits.maxXmlTextLength * 4)} } }.`,
+			details: {
+				limit: "maxXmlTextLength",
+				value: options.limits.maxXmlTextLength
+			}
+		});
+		if (!known && !final) return;
+		const all = pending.join("");
+		pending = null;
+		const declared = declaredEncoding(all);
 		if (declared !== null) {
 			const normalized = declared.toLowerCase();
 			if (!(encoding === "utf-8" ? normalized === "utf-8" : normalized === "utf-16" || normalized === encoding)) throw new XlvError("XLV_E_XML_ENCODING", `The part declares encoding "${declared}", which is not supported.`, {
@@ -1015,8 +1105,6 @@ function createXmlByteStreamParser(handler, options) {
 				details: { encoding: declared }
 			});
 		}
-		const all = pending;
-		pending = null;
 		if (all.length > 0) text.write(all);
 	};
 	const start = (bytes) => {
@@ -3411,6 +3499,22 @@ function describe$1(value) {
 	if (typeof value === "string") return JSON.stringify(value.length > 40 ? `${value.slice(0, 40)}…` : value);
 	if (typeof value === "object" || typeof value === "function") return `a value of type ${typeof value}`;
 	return String(value);
+}
+/**
+* Checks the number of positions an output built from a sheet would have against
+* max(`maxCells`, OUTPUT_PER_CELL × cells read). Throws `XLV_E_LIMIT_EXCEEDED` above it.
+*/
+function checkOutputPositions(positions, cells, maxCells, what, sheet) {
+	const budget = Math.max(maxCells, 16 * cells);
+	if (positions <= budget) return;
+	throw new XlvError("XLV_E_LIMIT_EXCEEDED", `${what} of sheet "${sheet}" would have ${String(positions)} positions (rows × columns) for ${String(cells)} cells, more than the limit of ${String(budget)}.`, {
+		location: { sheet },
+		hint: `The cells are spread over a far larger area than they fill. Pass a smaller range (for example { range: "A1:H1000" } or --range), or raise limits.maxCells if the file is trusted.`,
+		details: {
+			limit: "maxCells",
+			value: budget
+		}
+	});
 }
 // src/sml/numfmt.ts
 /** A `Map` whose contents cannot change after construction. */
@@ -8430,6 +8534,10 @@ function createRuleCollector(ctx) {
 	};
 }
 // src/sml/formula-shift.ts
+/** Number of decimal digits of a positive whole number. */
+const digits = (n) => n < 10 ? 1 : n < 100 ? 2 : n < 1e3 ? 3 : n < 1e4 ? 4 : n < 1e5 ? 5 : n < 1e6 ? 6 : 7;
+/** Number of letters of a column number from 1 to 16384 (A to XFD). */
+const letters = (c) => c <= 26 ? 1 : c <= 702 ? 2 : 3;
 /** Error constants (§18.17.3, fact E-33). */
 const ERROR_CONSTANTS = [
 	"#NULL!",
@@ -8773,8 +8881,17 @@ var Compiled = class {
 	maxRow = -Infinity;
 	minCol = Infinity;
 	maxCol = -Infinity;
+	/** Length of the literal text and sheet prefixes, which do not change when moved. */
+	literalLength = 0;
+	/** The references, for {@link renderedLength}. */
+	refs;
 	constructor(parts) {
 		this.parts = parts;
+		const refs = [];
+		for (const p of parts) if (typeof p === "string") this.literalLength += p.length;
+		else if (p.kind === "prefix") this.literalLength += p.text.length;
+		else refs.push(p);
+		this.refs = refs;
 		const row = (r, abs) => {
 			if (abs) return;
 			if (r < this.minRow) this.minRow = r;
@@ -8804,6 +8921,15 @@ var Compiled = class {
 		if (this.minRow !== Infinity && (this.minRow + dRow < 1 || this.maxRow + dRow > 1048576)) return false;
 		if (this.minCol !== Infinity && (this.minCol + dCol < 1 || this.maxCol + dCol > 16384)) return false;
 		return true;
+	}
+	renderedLength(dRow, dCol) {
+		let length = this.literalLength;
+		const col = (c, abs) => abs ? 1 + letters(c) : letters(c + dCol);
+		const row = (r, abs) => abs ? 1 + digits(r) : digits(r + dRow);
+		for (const p of this.refs) if (p.kind === "cell") length += col(p.col, p.colAbs) + row(p.row, p.rowAbs);
+		else if (p.kind === "cols") length += col(p.c1, p.c1Abs) + 1 + col(p.c2, p.c2Abs);
+		else length += row(p.r1, p.r1Abs) + 1 + row(p.r2, p.r2Abs);
+		return length;
 	}
 	render(dRow, dCol) {
 		let out = "";
@@ -8943,7 +9069,7 @@ function parseWorksheet(xml, ctx) {
 /** The cells of one row's style-only list (`[col, styleIndex, …]`), in column order. */
 function styledCellsOf(row, list, make) {
 	const pairs = [];
-	for (let i = 0; i + 1 < list.length; i += 2) pairs.push([list[i], list[i + 1]]);
+	for (let i = 0; i + 1 < list.length; i += 2) if (list[i + 1] !== -1) pairs.push([list[i], list[i + 1]]);
 	pairs.sort((a, b) => a[0] - b[0]);
 	return pairs.map(([col, styleIndex]) => make(row, col, styleIndex));
 }
@@ -8951,6 +9077,7 @@ function createWorksheetParser(ctx, onRow) {
 	const rows = /* @__PURE__ */ new Map();
 	const styleOnly = /* @__PURE__ */ new Map();
 	const styleOnlyMax = /* @__PURE__ */ new Map();
+	const styleOnlyIndex = /* @__PURE__ */ new Map();
 	const merges = [];
 	const formats = ctx.formatCache;
 	const path = [];
@@ -8959,6 +9086,7 @@ function createWorksheetParser(ctx, onRow) {
 	let cellCount = 0;
 	const masters = /* @__PURE__ */ new Map();
 	const dependents = [];
+	const compiled = /* @__PURE__ */ new Map();
 	const columns = [];
 	const rowInfo = /* @__PURE__ */ new Map();
 	let freeze = null;
@@ -9041,8 +9169,14 @@ function createWorksheetParser(ctx, onRow) {
 		if (max === void 0 || col > max) return -1;
 		const list = styleOnly.get(row);
 		if (list === void 0) return -1;
-		for (let i = list.length - 2; i >= 0; i -= 2) if (list[i] === col) return i;
-		return -1;
+		if (list[list.length - 2] === col && list[list.length - 1] !== -1) return list.length - 2;
+		let index = styleOnlyIndex.get(row);
+		if (index === void 0) {
+			index = /* @__PURE__ */ new Map();
+			for (let i = 0; i + 1 < list.length; i += 2) if (list[i + 1] !== -1) index.set(list[i], i);
+			styleOnlyIndex.set(row, index);
+		}
+		return index.get(col) ?? -1;
 	};
 	const styledCell = (row, col, styleIndex) => {
 		const code = numberFormat(styleIndex).code;
@@ -9223,13 +9357,16 @@ function createWorksheetParser(ctx, onRow) {
 					value: ctx.limits.maxCells
 				}
 			});
+			styleOnlyIndex.get(p.row)?.set(p.col, styled.length);
 			styled.push(p.col, p.styleIndex);
 			if (p.col > (styleOnlyMax.get(p.row) ?? 0)) styleOnlyMax.set(p.row, p.col);
 			return;
 		}
 		const at = styledIndex(p.row, p.col);
 		if (at >= 0) {
-			styleOnly.get(p.row)?.splice(at, 2);
+			const list = styleOnly.get(p.row);
+			if (list !== void 0) list[at + 1] = -1;
+			styleOnlyIndex.get(p.row)?.delete(p.col);
 			ctx.budget.remaining++;
 			ctx.warnings.add("XLV_W_DUPLICATE_CELL", "The sheet defines the same cell more than once; the last definition is used.", loc(p.ref));
 		}
@@ -9263,6 +9400,18 @@ function createWorksheetParser(ctx, onRow) {
 			...richText === void 0 ? {} : { richText }
 		});
 	};
+	const spendFormulaText = (chars, ref) => {
+		ctx.budget.formulaText -= chars;
+		if (ctx.budget.formulaText >= 0) return;
+		throw new XlvError("XLV_E_LIMIT_EXCEEDED", "The cells that share formulas would hold more formula text than the limit allows.", {
+			location: loc(ref),
+			hint: `Small files can share one huge formula with many cells; the limit counts the formula of each cell that shares it. If you trust this file, raise the limit, for example { limits: { maxSharedStringChars: ${String(ctx.limits.maxSharedStringChars * 4)} } }.`,
+			details: {
+				limit: "maxSharedStringChars",
+				value: ctx.limits.maxSharedStringChars
+			}
+		});
+	};
 	const warnNotExpanded = (ref) => ctx.warnings.add("XLV_W_SHARED_FORMULA_NOT_EXPANDED", "Some cells reuse a shared formula that could not be moved to them (missing master, cell outside the master range, or formula text xlvane cannot translate safely); their formula.text is null and their cached values are available.", loc(ref));
 	/** Streaming: expands the pending shared formulas and hands the buffered cells on. */
 	const flushRows = () => {
@@ -9270,7 +9419,7 @@ function createWorksheetParser(ctx, onRow) {
 		const info = rowInfo.get(currentRow);
 		rowInfo.delete(currentRow);
 		if (rows.size === 0 && styleOnly.size === 0) return;
-		expandSharedFormulas(rows, masters, dependents, warnNotExpanded);
+		expandSharedFormulas(rows, masters, compiled, dependents, warnNotExpanded, spendFormulaText);
 		dependents.length = 0;
 		const out = [];
 		for (const r of [...rows.keys()].sort((a, b) => a - b)) {
@@ -9282,6 +9431,7 @@ function createWorksheetParser(ctx, onRow) {
 		for (const r of [...styleOnly.keys()].sort((a, b) => a - b)) styled.push(...styledCellsOf(r, styleOnly.get(r) ?? [], styledCell));
 		styleOnly.clear();
 		styleOnlyMax.clear();
+		styleOnlyIndex.clear();
 		if (out.length > 0 || styled.length > 0) onRow(currentRow, out, info, styled);
 	};
 	const handler = {
@@ -9530,7 +9680,7 @@ function createWorksheetParser(ctx, onRow) {
 	};
 	const finish = () => {
 		if (onRow) flushRows();
-		else expandSharedFormulas(rows, masters, dependents, warnNotExpanded);
+		else expandSharedFormulas(rows, masters, compiled, dependents, warnNotExpanded, spendFormulaText);
 		const activeCell = selections.get(activePane);
 		if (activeCell !== void 0) view = Object.freeze({
 			...view,
@@ -9569,8 +9719,7 @@ function createWorksheetParser(ctx, onRow) {
 * many cells costs memory only for the texts actually read. Dependents that cannot be expanded
 * keep `text: null` and are reported through `warn`.
 */
-function expandSharedFormulas(rows, masters, dependents, warn) {
-	const compiled = /* @__PURE__ */ new Map();
+function expandSharedFormulas(rows, masters, compiled, dependents, warn, spend) {
 	for (const d of dependents) {
 		const rowCells = rows.get(d.row);
 		const cell = rowCells?.get(d.col);
@@ -9592,6 +9741,7 @@ function expandSharedFormulas(rows, masters, dependents, warn) {
 			warn(d.ref);
 			continue;
 		}
+		spend(formula.renderedLength(dRow, dCol), d.ref);
 		rowCells.set(d.col, {
 			...cell,
 			formula: lazySharedFormula(formula, dRow, dCol, d.si)
@@ -9910,6 +10060,7 @@ var NotLoaded = class extends Error {
 		this.end = end;
 	}
 };
+const segmentEnd = (segment) => segment.start + segment.data.length;
 /**
 * Little-endian access to a file of `size` bytes, of which only some segments may be in memory
 * (all of it for `openZip`; the tail, the central directory and local headers for streaming
@@ -9917,7 +10068,14 @@ var NotLoaded = class extends Error {
 */
 var Bytes = class Bytes {
 	size;
+	/** Loaded segments in order of `start` (equal starts in order of addition). */
 	segments = [];
+	/**
+	* For each index i, the segment with the largest end among segments[0..i]. A range is loaded
+	* exactly when that segment, for the last i whose start is at or before the range's start,
+	* reaches its end; so a lookup is one binary search (D-H01).
+	*/
+	reach = [];
 	last;
 	constructor(size, segments) {
 		this.size = size;
@@ -9934,35 +10092,40 @@ var Bytes = class Bytes {
 			start,
 			data
 		};
-		this.segments.push(segment);
-		this.segments.sort((a, b) => a.start - b.start);
+		const at = this.upperBound(start);
+		this.segments.splice(at, 0, segment);
+		this.reach.splice(at, 0, segment);
+		for (let i = at; i < this.segments.length; i++) {
+			const own = this.segments[i];
+			const before = i === 0 ? void 0 : this.reach[i - 1];
+			this.reach[i] = before !== void 0 && segmentEnd(before) >= segmentEnd(own) ? before : own;
+		}
 		this.last = segment;
 	}
 	/** Whether `[start, end)` is fully inside one loaded segment. */
 	has(start, end) {
 		return this.find(start, end) !== void 0;
 	}
-	find(start, end) {
-		const last = this.last;
-		if (last && start >= last.start && end <= last.start + last.data.length) return last;
+	/** The number of segments whose start is at or before `start`. */
+	upperBound(start) {
 		let lo = 0;
-		let hi = this.segments.length - 1;
-		let found;
-		while (lo <= hi) {
+		let hi = this.segments.length;
+		while (lo < hi) {
 			const mid = lo + hi >> 1;
-			const seg = this.segments[mid];
-			if (seg.start <= start) {
-				found = seg;
-				lo = mid + 1;
-			} else hi = mid - 1;
+			if (this.segments[mid].start <= start) lo = mid + 1;
+			else hi = mid;
 		}
-		for (let i = found === void 0 ? -1 : this.segments.indexOf(found); i >= 0; i--) {
-			const seg = this.segments[i];
-			if (end <= seg.start + seg.data.length && start >= seg.start) {
-				this.last = seg;
-				return seg;
-			}
-		}
+		return lo;
+	}
+	find(start, stop) {
+		const last = this.last;
+		if (last && start >= last.start && stop <= segmentEnd(last)) return last;
+		const i = this.upperBound(start) - 1;
+		if (i < 0) return void 0;
+		const seg = this.reach[i];
+		if (stop > segmentEnd(seg)) return void 0;
+		this.last = seg;
+		return seg;
 	}
 	/** The bytes `[start, end)`; throws {@link NotLoaded} if they are not in memory. */
 	slice(start, end) {
@@ -10501,7 +10664,8 @@ function readWorkbook(data, options) {
 	const book = analyzeWorkbook(pkg, limits, warnings);
 	const budget = {
 		remaining: limits.maxCells,
-		sharedText: limits.maxSharedStringChars
+		sharedText: limits.maxSharedStringChars,
+		formulaText: limits.maxSharedStringChars
 	};
 	const formatCache = /* @__PURE__ */ new Map();
 	const media = /* @__PURE__ */ new Map();
@@ -10521,10 +10685,10 @@ function readWorkbook(data, options) {
 			formatCache
 		});
 		const links = data === null || entry.part === null ? [] : resolveHyperlinks(pkg, entry.part, entry.name, data, warnings);
-		const notes = data === null || entry.part === null ? [] : readNotes(pkg, entry.part, entry.name, limits, warnings);
+		const notes = data === null || entry.part === null ? [] : readNotes(pkg, entry.part, entry.name, limits, warnings, entry.foreignParts);
 		if (data !== null) attachNotes(data.rows, notes);
 		const sheet = new ReadSheet(entry.name, entry.index, entry.kind, entry.state, entry.part, data, entry.sheetId, links, notes, book.definedNames);
-		if (data !== null && entry.part !== null) sheet.tables = readTables(pkg, entry.part, entry.name, limits, warnings);
+		if (data !== null && entry.part !== null) sheet.tables = readTables(pkg, entry.part, entry.name, limits, warnings, entry.foreignParts);
 		if (data !== null && entry.part !== null) {
 			const drawing = readSheetDrawing(pkg, entry.part, entry.name, {
 				drawing: data.drawingRelId ?? null,
@@ -10578,29 +10742,55 @@ function resolveHyperlinks(pkg, part, sheet, data, warnings) {
 		part,
 		sheet
 	});
+	let total = 0;
+	for (const cells of data.rows.values()) total += cells.size;
+	let linked = 0;
+	let visits = 0;
+	const maxVisits = 16 * total + 1e6;
 	for (const link of links) {
+		if (linked === total) break;
+		if (visits > maxVisits) {
+			warnings.add("XLV_W_LIMIT_REACHED", `The sheet's hyperlinks cover far more positions than it has cells; cell.hyperlink is not set for the cells of some links. sheet.hyperlinks lists every link.`, {
+				part,
+				sheet
+			});
+			break;
+		}
 		const range = parseRange(link.ref);
 		if (range === null) continue;
 		const rowSpan = range.end.row - range.start.row + 1;
 		const colSpan = range.end.col - range.start.col + 1;
 		const visit = (cells) => {
 			const mark = (c, cell) => {
-				if (cell.hyperlink === void 0) cells.set(c, {
-					...cell,
-					hyperlink: link
-				});
+				if (cell.hyperlink === void 0) {
+					cells.set(c, {
+						...cell,
+						hyperlink: link
+					});
+					linked++;
+				}
 			};
-			if (colSpan <= cells.size) for (let c = range.start.col; c <= range.end.col; c++) {
-				const cell = cells.get(c);
-				if (cell) mark(c, cell);
+			if (colSpan <= cells.size) {
+				visits += colSpan;
+				for (let c = range.start.col; c <= range.end.col; c++) {
+					const cell = cells.get(c);
+					if (cell) mark(c, cell);
+				}
+			} else {
+				visits += cells.size;
+				for (const [c, cell] of cells) if (c >= range.start.col && c <= range.end.col) mark(c, cell);
 			}
-			else for (const [c, cell] of cells) if (c >= range.start.col && c <= range.end.col) mark(c, cell);
 		};
-		if (rowSpan <= data.rows.size) for (let r = range.start.row; r <= range.end.row; r++) {
-			const cells = data.rows.get(r);
-			if (cells) visit(cells);
+		if (rowSpan <= data.rows.size) {
+			visits += rowSpan;
+			for (let r = range.start.row; r <= range.end.row; r++) {
+				const cells = data.rows.get(r);
+				if (cells) visit(cells);
+			}
+		} else {
+			visits += data.rows.size;
+			for (const [r, cells] of data.rows) if (r >= range.start.row && r <= range.end.row) visit(cells);
 		}
-		else for (const [r, cells] of data.rows) if (r >= range.start.row && r <= range.end.row) visit(cells);
 	}
 	return links;
 }
@@ -10610,8 +10800,8 @@ function resolveHyperlinks(pkg, part, sheet, data, warnings) {
 * ([MS-XLSX] §2.3.7) are reported with `XLV_W_THREADED_COMMENTS`; their legacy placeholders are
 * ordinary notes.
 */
-function readNotes(pkg, part, sheet, limits, warnings) {
-	const rels = pkg.relationships(part);
+function readNotes(pkg, part, sheet, limits, warnings, foreign = NO_PARTS) {
+	const rels = pkg.relationships(part).filter((r) => r.external || !foreign.has(partKey(r.target)));
 	if (rels.some((r) => r.type === "http://schemas.microsoft.com/office/2017/10/relationships/threadedComment")) warnings.add("XLV_W_THREADED_COMMENTS", "The sheet has threaded comments (conversations); xlvane reads only the notes stored with them, whose author is \"tc={id}\" and whose text may not include the replies.", {
 		part,
 		sheet
@@ -10633,8 +10823,12 @@ function readNotes(pkg, part, sheet, limits, warnings) {
 		warnings
 	});
 	if (notes.length === 0) return notes;
+	const seen = /* @__PURE__ */ new Set();
 	for (const vml of rels) {
 		if (vml.external || classifyRelationship(vml.type)?.name !== "vmlDrawing") continue;
+		const key = partKey(vml.target);
+		if (seen.has(key)) continue;
+		seen.add(key);
 		const text = pkg.readXml(vml.target);
 		if (text === void 0) continue;
 		const boxes = parseNoteBoxes(text, {
@@ -10659,10 +10853,14 @@ function readNotes(pkg, part, sheet, limits, warnings) {
 * relationships (Part 1 §12.3.21, §18.3.1.94; TD-01), in relationship order. A missing or
 * invalid part gives a warning, never an error.
 */
-function readTables(pkg, part, sheet, limits, warnings) {
+function readTables(pkg, part, sheet, limits, warnings, foreign = NO_PARTS) {
 	const tables = [];
+	const seen = /* @__PURE__ */ new Set();
 	for (const rel of pkg.relationships(part)) {
 		if (rel.external || classifyRelationship(rel.type)?.name !== "table") continue;
+		const key = partKey(rel.target);
+		if (seen.has(key) || foreign.has(key)) continue;
+		seen.add(key);
 		if (tables.length >= 4096) {
 			warnings.add("XLV_W_INVALID_VALUE", `The sheet has more than ${String(MAX_TABLES_PER_SHEET)} tables; the rest are not read.`, {
 				part,
@@ -10701,6 +10899,13 @@ function attachNotes(rows, notes) {
 		});
 	}
 }
+const NO_PARTS = /* @__PURE__ */ new Set();
+/** Relationship types whose parts are read per sheet, besides the worksheet itself. */
+const SHEET_RELATED = /* @__PURE__ */ new Set([
+	"comments",
+	"vmlDrawing",
+	"table"
+]);
 /** The Core Properties relationship of the package, if any (D-A02). */
 function corePropertiesRel(pkg) {
 	return pkg.relationships(null).find((r) => !r.external && isCorePropertiesRel(r.type));
@@ -10774,6 +10979,7 @@ function analyzeWorkbook(pkg, limits, warnings) {
 	const externalLinkCount = rels.filter((r) => classifyRelationship(r.type)?.name === "externalLink").length;
 	if (externalLinkCount > 0) warnings.add("XLV_W_EXTERNAL_LINKS", `The workbook links to ${externalLinkCount} external workbook(s). xlvane never follows the links; linked values are the cached copies.`, { part: workbookPart });
 	const dateSystem = info.date1904 ? "1904" : "1900";
+	const owners = /* @__PURE__ */ new Map();
 	const sheets = info.sheets.map((entry, index) => {
 		if (entry.state === "veryHidden") warnings.add("XLV_W_VERY_HIDDEN_SHEET", `Sheet "${entry.name}" is very hidden: spreadsheet applications do not offer a way to unhide it.`, { sheet: entry.name });
 		const rel = entry.relId === null ? void 0 : relsById.get(entry.relId);
@@ -10790,8 +10996,40 @@ function analyzeWorkbook(pkg, limits, warnings) {
 				sheetId: entry.sheetId,
 				kind,
 				state: entry.state,
-				part: null
+				part: null,
+				foreignParts: NO_PARTS
 			};
+		}
+		const owner = owners.get(partKey(rel.target));
+		if (owner !== void 0) {
+			warnings.add("XLV_W_SHEET_PART_SHARED", `Sheet "${entry.name}" has the same part as sheet "${owner}"; the part is read for "${owner}" only, and "${entry.name}" is returned without cells.`, {
+				sheet: entry.name,
+				part: rel.target
+			});
+			return {
+				name: entry.name,
+				index,
+				sheetId: entry.sheetId,
+				kind,
+				state: entry.state,
+				part: null,
+				foreignParts: NO_PARTS
+			};
+		}
+		owners.set(partKey(rel.target), entry.name);
+		const foreign = /* @__PURE__ */ new Set();
+		for (const r of pkg.relationships(rel.target)) {
+			if (r.external || !SHEET_RELATED.has(classifyRelationship(r.type)?.name ?? "")) continue;
+			const key = partKey(r.target);
+			const first = owners.get(key);
+			if (first === void 0) owners.set(key, entry.name);
+			else if (first !== entry.name && !foreign.has(key)) {
+				foreign.add(key);
+				warnings.add("XLV_W_SHEET_PART_SHARED", `Sheet "${entry.name}" relates to the part ${r.target}, which belongs to sheet "${first}"; it is read for "${first}" only.`, {
+					sheet: entry.name,
+					part: r.target
+				});
+			}
 		}
 		return {
 			name: entry.name,
@@ -10799,7 +11037,8 @@ function analyzeWorkbook(pkg, limits, warnings) {
 			sheetId: entry.sheetId,
 			kind,
 			state: entry.state,
-			part: rel.target
+			part: rel.target,
+			foreignParts: foreign
 		};
 	});
 	const definedNames = info.definedNames.map((n) => {
@@ -13076,4 +13315,4 @@ function openInput(input, limits, onWarning) {
 	if (onWarning !== void 0) for (const warning of workbook.warnings) onWarning(warning);
 	return workbook;
 }
-export { fillXml as $, resolveImage as $t, limitExceeded as A, EMPTY_STYLES as At, tokenize as B, suggest as Bt, Bytes as C, escapeText as Cn, relationshipsPartName as Ct, TAIL_BYTES as D, isXlvError as Dn, normalizeTable as Dt, NotLoaded as E, XlvError as En, TABLE_CONTENT_TYPE as Et, validateLocalHeaders as F, normalizeStyle as Ft, DEFAULT_FONT as G, legacyPasswordHash as Gt, X14_DV_URI as H, printXml as Ht, WarningCollector as I, stableKey as It, borderXml as J, IMAGE_CONTENT_TYPES as Jt, SheetRels as K, verifyPassword as Kt, sheetNotFound as L, isDateFormat as Lt, openZip as M, READING_ORDERS as Mt, readCentralDirectory as N, checkStyleCount as Nt, checkSource as O, checkDefinedName as Ot, unsupported as P, mergeStyles as Pt, createSharedStrings as Q, metricsOf as Qt, createWorksheetParser as R, DEFAULT_READ_LIMITS as Rt, workbookPartsToLoad as S, escapeAttr as Sn, openPackage as St, HEAD_BYTES as T, WARNING_CODES as Tn, zipNameToPartName as Tt, X14_NS as U, sheetProtectionXml as Ut, X14_CF_URI as V, printNames as Vt, XM_NS as W, hashPassword as Wt, cellXml as X, drawingParts as Xt, buildStyles as Y, MediaParts as Yt, contentTypesXml as Z, imageFormat as Zt, isoDate as _, createXmlByteStreamParser as _n, FormulaGroups as _t, DATE_FORMAT as a, columnLetters as an, reusableBuiltinNumFmt as at, readWorkbook as b, parseXml as bn, parseIsoDateTime as bt, NewSheet as c, parseCellRef as cn, sheetHead as ct, convertCellInput as d, CORE_PROPERTIES_PART as dn, sheetTail as dt, SML_NS as en, fontXml as et, createWorkbook as f, appPropertiesXml as fn, stringItemXml as ft, inspect as g, parseXmlTree as gn, workbookXml as gt, detectHeader as h, childrenNamed as hn, workbookRelsXml as ht, readOptions as i, MAX_ROWS as in, noteParts as it, locateCentralDirectory as j, parseStyles as jt, corrupt as k, checkUniqueName as kt, NewWorkbook as l, parseRange as ln, sheetRelsPartName as lt, writeWorkbook as m, childNamed as mn, textElement as mt, oneOfOption as n, relationshipTypes as nn, hyperlinksXml as nt, DATE_TIME_FORMAT as o, formatCellRef as on, rootRelsXml as ot, sortedNotes as p, corePropertiesXml as pn, tableParts as pt, attr as q, DRAWING_CONTENT_TYPE as qt, openInput as r, MAX_COLUMNS as rn, nameTitles as rt, ERROR_VALUES as s, formatRange as sn, rowStart as st, booleanOption as t, classifyRelationship as tn, formatNumber as tt, checkBookViews as u, APP_PROPERTIES_PART as un, sheetRulesXml as ut, analyzeWorkbook as v, decodeXml as vn, writeZip as vt, CORRUPT_HINT as w, ERROR_CODES as wn, partKey as wt, toBytes as x, encodeXstring as xn, parseSharedStrings as xt, readNotes as y, normalizeLineEnds as yn, crc32 as yt, shiftFormula as z, resolveLimits as zt };
+export { fillXml as $, metricsOf as $t, limitExceeded as A, EMPTY_STYLES as At, tokenize as B, resolveLimits as Bt, Bytes as C, encodeXstring as Cn, relationshipsPartName as Ct, TAIL_BYTES as D, WARNING_CODES as Dn, normalizeTable as Dt, NotLoaded as E, ERROR_CODES as En, TABLE_CONTENT_TYPE as Et, validateLocalHeaders as F, normalizeStyle as Ft, DEFAULT_FONT as G, hashPassword as Gt, X14_DV_URI as H, printNames as Ht, WarningCollector as I, stableKey as It, borderXml as J, DRAWING_CONTENT_TYPE as Jt, SheetRels as K, legacyPasswordHash as Kt, sheetNotFound as L, isDateFormat as Lt, openZip as M, READING_ORDERS as Mt, readCentralDirectory as N, checkStyleCount as Nt, checkSource as O, XlvError as On, checkDefinedName as Ot, unsupported as P, mergeStyles as Pt, createSharedStrings as Q, imageFormat as Qt, createWorksheetParser as R, DEFAULT_READ_LIMITS as Rt, workbookPartsToLoad as S, parseXml as Sn, openPackage as St, HEAD_BYTES as T, escapeText as Tn, zipNameToPartName as Tt, X14_NS as U, printXml as Ut, X14_CF_URI as V, suggest as Vt, XM_NS as W, sheetProtectionXml as Wt, cellXml as X, MediaParts as Xt, buildStyles as Y, IMAGE_CONTENT_TYPES as Yt, contentTypesXml as Z, drawingParts as Zt, isoDate as _, childrenNamed as _n, FormulaGroups as _t, DATE_FORMAT as a, MAX_COLUMNS as an, reusableBuiltinNumFmt as at, readWorkbook as b, decodeXml as bn, parseIsoDateTime as bt, NewSheet as c, formatCellRef as cn, sheetHead as ct, convertCellInput as d, parseRange as dn, sheetTail as dt, resolveImage as en, fontXml as et, createWorkbook as f, APP_PROPERTIES_PART as fn, stringItemXml as ft, inspect as g, childNamed as gn, workbookXml as gt, detectHeader as h, corePropertiesXml as hn, workbookRelsXml as ht, readOptions as i, relationshipTypes as in, noteParts as it, locateCentralDirectory as j, parseStyles as jt, corrupt as k, isXlvError as kn, checkUniqueName as kt, NewWorkbook as l, formatRange as ln, sheetRelsPartName as lt, writeWorkbook as m, appPropertiesXml as mn, textElement as mt, oneOfOption as n, SML_NS as nn, hyperlinksXml as nt, DATE_TIME_FORMAT as o, MAX_ROWS as on, rootRelsXml as ot, sortedNotes as p, CORE_PROPERTIES_PART as pn, tableParts as pt, attr as q, verifyPassword as qt, openInput as r, classifyRelationship as rn, nameTitles as rt, ERROR_VALUES as s, columnLetters as sn, rowStart as st, booleanOption as t, REL_NS as tn, formatNumber as tt, checkBookViews as u, parseCellRef as un, sheetRulesXml as ut, analyzeWorkbook as v, parseXmlTree as vn, writeZip as vt, CORRUPT_HINT as w, escapeAttr as wn, partKey as wt, toBytes as x, normalizeLineEnds as xn, parseSharedStrings as xt, readNotes as y, createXmlByteStreamParser as yn, crc32 as yt, shiftFormula as z, checkOutputPositions as zt };

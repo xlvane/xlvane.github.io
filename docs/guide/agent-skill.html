@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>Agent Skill - xlvane</title>
-<meta name="description" content="Agent Skill of xlvane 1.1.0, an XLSX library.">
+<meta name="description" content="Agent Skill of xlvane 1.1.1, an XLSX library.">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="../style.css">
 
@@ -15,7 +15,7 @@
 <header class="site-header">
   <div class="bar">
     <a class="brand" href="../index.html"><span class="logo" aria-hidden="true"></span>xlvane</a>
-    <span class="version" title="Version on npm">1.1.0</span>
+    <span class="version" title="Version on npm">1.1.1</span>
     <nav class="main-nav" aria-label="Main"><a href="../guide/index.html" aria-current="page">Guide</a><a href="../demo/index.html">Demo</a><a href="../changelog.html">Changelog</a><a href="https://github.com/DevXord/xlvane">GitHub</a><a href="https://www.npmjs.com/package/xlvane">npm</a></nav>
   </div>
 </header>
@@ -150,11 +150,11 @@ xlvane validate report.xlsx --columns &quot;Region:string,Revenue:number&quot;</
 <p>Common cases:</p>
 <ul><li><code>XLV_E_SHEET_NOT_FOUND</code>: <code>details.available</code> lists the sheets, and the hint names a close match when there is one.</li><li><code>XLV_E_HEADER_NOT_FOUND</code>: pass the header row number, or <code>header: false</code> to use column letters.</li><li><code>XLV_E_FILE_EXISTS</code>: choose another output path, or overwrite explicitly.</li><li><code>XLV_E_LIMIT_EXCEEDED</code>: the file is larger than a limit; raise the limit only for trusted files.</li></ul>
 <h2 id="things-to-know"><a class="anchor" href="#things-to-know" aria-hidden="true">#</a>Things to know</h2>
-<ul><li>Formulas are not calculated. After <code>editCells</code>, cached results that depend on edited cells are out of date until a spreadsheet program recalculates them (the file asks it to on opening).</li><li>Dates in spreadsheets have no time zone; xlvane returns them as <code>Date</code> objects whose UTC fields hold the spreadsheet&#39;s date and time. As text (<code>toCSV</code>, <code>toJSON</code>, <code>readTable({ dates: &#39;iso&#39; })</code>, <code>inspect</code>, <code>xlvane read --json</code>) they are ISO 8601 without a zone: <code>2024-01-31</code> or <code>2024-01-31T13:45:00</code>.</li><li>JSON has no date type: <code>fromJSON</code> keeps ISO date strings as text. Convert them to <code>Date</code> before <code>fromJSON</code>/<code>writeTable</code> if they should be dates. <code>fromCSV</code> does recognise ISO dates.</li><li><code>xlvane read --json</code> returns the first 50 rows; check <code>truncated</code> and use <code>--limit all</code> for every row. Warnings found while reading are in <code>result.warnings</code>.</li><li><code>.xls</code> (the old binary format) and encrypted files are not supported and are reported with an error code.</li></ul><p class="source">Source: <a href="https://github.com/DevXord/xlvane/blob/v1.1.0/skills/xlvane/SKILL.md">skills/xlvane/SKILL.md</a> (version 1.1.0)</p></article>
+<ul><li>Formulas are not calculated. After <code>editCells</code>, cached results that depend on edited cells are out of date until a spreadsheet program recalculates them (the file asks it to on opening).</li><li>Dates in spreadsheets have no time zone; xlvane returns them as <code>Date</code> objects whose UTC fields hold the spreadsheet&#39;s date and time. As text (<code>toCSV</code>, <code>toJSON</code>, <code>readTable({ dates: &#39;iso&#39; })</code>, <code>inspect</code>, <code>xlvane read --json</code>) they are ISO 8601 without a zone: <code>2024-01-31</code> or <code>2024-01-31T13:45:00</code>.</li><li>JSON has no date type: <code>fromJSON</code> keeps ISO date strings as text. Convert them to <code>Date</code> before <code>fromJSON</code>/<code>writeTable</code> if they should be dates. <code>fromCSV</code> does recognise ISO dates.</li><li><code>xlvane read --json</code> returns the first 50 rows; check <code>truncated</code> and use <code>--limit all</code> for every row. Warnings found while reading are in <code>result.warnings</code>.</li><li><code>.xls</code> (the old binary format) and encrypted files are not supported and are reported with an error code.</li></ul><p class="source">Source: <a href="https://github.com/DevXord/xlvane/blob/v1.1.1/skills/xlvane/SKILL.md">skills/xlvane/SKILL.md</a> (version 1.1.1)</p></article>
 </main>
 </div>
 <footer class="site-footer">
-  <p>xlvane 1.1.0, MIT License. Pages built from the package published on npm. <a href="https://github.com/DevXord/xlvane">Source on GitHub</a> · <a href="https://github.com/DevXord/xlvane/blob/main/SECURITY.md">Reporting a vulnerability</a></p>
+  <p>xlvane 1.1.1, MIT License. Pages built from the package published on npm. <a href="https://github.com/DevXord/xlvane">Source on GitHub</a> · <a href="https://github.com/DevXord/xlvane/blob/main/SECURITY.md">Reporting a vulnerability</a></p>
 </footer>
 </body>
 </html>
