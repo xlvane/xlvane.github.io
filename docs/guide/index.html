@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Guide - xlvane</title>
+<meta name="description" content="Guide of xlvane 1.1.0, an XLSX library.">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../style.css">
+
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="bar">
+    <a class="brand" href="../index.html"><span class="logo" aria-hidden="true"></span>xlvane</a>
+    <span class="version" title="Version on npm">1.1.0</span>
+    <nav class="main-nav" aria-label="Main"><a href="../guide/index.html" aria-current="page">Guide</a><a href="../demo/index.html">Demo</a><a href="../changelog.html">Changelog</a><a href="https://github.com/DevXord/xlvane">GitHub</a><a href="https://www.npmjs.com/package/xlvane">npm</a></nav>
+  </div>
+</header>
+<div class="layout with-toc">
+<nav class="toc" aria-label="On this page"><p class="toc-title">On this page</p><ul><li class="toc-2"><a href="#quick-start">Quick start</a></li><li class="toc-2"><a href="#contents">Contents</a></li><li class="toc-2"><a href="#tested-environments">Tested environments</a></li><li class="toc-2"><a href="#command-line-in-5-minutes">Command line in 5 minutes</a></li><li class="toc-2"><a href="#reading-a-workbook">Reading a workbook</a></li><li class="toc-2"><a href="#writing-a-workbook">Writing a workbook</a></li><li class="toc-3"><a href="#rich-text-document-properties-defined-names-column-styles">Rich text, document properties, defined names, column styles</a></li><li class="toc-3"><a href="#hyperlinks-notes-tab-colour-and-view">Hyperlinks, notes, tab colour and view</a></li><li class="toc-3"><a href="#images">Images</a></li><li class="toc-3"><a href="#sheet-rules-and-printing">Sheet rules and printing</a></li><li class="toc-3"><a href="#data-validation-and-conditional-formatting">Data validation and conditional formatting</a></li><li class="toc-3"><a href="#tables">Tables</a></li><li class="toc-2"><a href="#tasks-in-one-call">Tasks in one call</a></li><li class="toc-3"><a href="#inserting-and-deleting-rows">Inserting and deleting rows</a></li><li class="toc-2"><a href="#large-files-streaming">Large files: streaming</a></li><li class="toc-2"><a href="#benchmark">Benchmark</a></li><li class="toc-2"><a href="#inspecting-a-workbook">Inspecting a workbook</a></li><li class="toc-2"><a href="#errors-and-warnings">Errors and warnings</a></li><li class="toc-2"><a href="#untrusted-input-and-limits">Untrusted input and limits</a></li><li class="toc-2"><a href="#package-size">Package size</a></li><li class="toc-2"><a href="#limitations">Limitations</a></li><li class="toc-2"><a href="#links">Links</a></li></ul></nav>
+<main id="main">
+<nav class="guide-nav" aria-label="Guide"><a href="index.html" aria-current="page">Guide</a><a href="compat.html">@xlvane/compat</a><a href="errors.html">Errors and warnings</a><a href="inspect-json.html">inspect() report</a><a href="cli-json.html">Command line JSON</a><a href="exceljs-compat.html">exceljs compatibility</a><a href="agent-skill.html">Agent Skill</a></nav><article class="doc"><h1 id="xlvane"><a class="anchor" href="#xlvane" aria-hidden="true">#</a>xlvane</h1>
+<p>Read, inspect and write XLSX files; input files are treated as untrusted. ESM only, one runtime dependency (<a href="https://github.com/101arrowz/fflate">fflate</a>). The core works with <code>Uint8Array</code> and has no Node.js dependencies; file helpers are in <code>xlvane/node</code>.</p>
+<pre><code class="language-sh">npm install xlvane</code></pre>
+<p>The package also contains <code>docs/</code> (error codes, JSON schemas, exceljs compatibility), the Agent Skill <code>skills/xlvane/SKILL.md</code> and <code>llms-full.txt</code> (all of it in one file), for reading without network access: after installing, they are in <code>node_modules/xlvane/</code>. Links below point to the same files on GitHub. The skill can be installed into a project with the <a href="https://github.com/vercel-labs/skills"><code>skills</code></a> CLI, offline: <code>npx skills add ./node_modules/xlvane/skills --skill xlvane</code>.</p>
+<h2 id="quick-start"><a class="anchor" href="#quick-start" aria-hidden="true">#</a>Quick start</h2>
+<pre><code class="language-ts">import { inspect, readTable, writeTable } from &#39;xlvane&#39;;
+import { readWorkbookFile } from &#39;xlvane/node&#39;;
+
+const workbook = await readWorkbookFile(&#39;orders.xlsx&#39;);
+console.log(inspect(workbook).sheets.map((s) =&gt; [s.name, s.usedRange])); // what is in the file
+const { rows } = readTable(workbook, { sheet: &#39;Orders&#39; }); // [{ Customer: &#39;Ann&#39;, Total: 120.5 }, …]
+const big = rows.filter((row) =&gt; typeof row[&#39;Total&#39;] === &#39;number&#39; &amp;&amp; row[&#39;Total&#39;] &gt; 100);
+const bytes = writeTable(big, { sheet: &#39;Big orders&#39; }); // a formatted .xlsx file as a Uint8Array</code></pre>
+<p>From a shell: <code>npx xlvane inspect orders.xlsx</code>, then <code>npx xlvane read orders.xlsx --sheet Orders</code>.</p>
+<h2 id="contents"><a class="anchor" href="#contents" aria-hidden="true">#</a>Contents</h2>
+<ul><li><a href="#command-line-in-5-minutes">Command line in 5 minutes</a></li><li><a href="#reading-a-workbook">Reading a workbook</a> · <a href="#writing-a-workbook">Writing a workbook</a> (rich text, hyperlinks, notes, images, printing, <a href="#data-validation-and-conditional-formatting">data validation and conditional formatting</a>, <a href="#tables">tables</a>)</li><li><a href="#tasks-in-one-call">Tasks in one call</a>: tables of rows, CSV, JSON, editing files, diff · <a href="#inserting-and-deleting-rows">inserting and deleting rows</a></li><li><a href="#large-files-streaming">Large files: streaming</a></li><li><a href="#inspecting-a-workbook">Inspecting a workbook</a> · <a href="#errors-and-warnings">Errors and warnings</a> · <a href="#untrusted-input-and-limits">Untrusted input and limits</a></li><li><a href="#limitations">Limitations</a> · <a href="#package-size">Package size</a> · <a href="#links">Links</a></li><li>exceljs users: <a href="https://www.npmjs.com/package/@xlvane/compat"><code>@xlvane/compat</code></a> and <code>xlvane migrate</code></li></ul>
+<h2 id="tested-environments"><a class="anchor" href="#tested-environments" aria-hidden="true">#</a>Tested environments</h2>
+<p>The core API (reading, writing, inspect, tables, CSV, editing, diff, streaming with Web Streams) and <code>@xlvane/compat</code> are tested in Node.js 22, 24 and 26, Bun, Deno, Chromium (Playwright) and the Cloudflare Workers runtime (workerd), with the same test bundle (<code>npm run test:runtimes</code>). In Deno, import from <code>npm:xlvane</code>; in browsers and Workers, through a bundler such as Vite, esbuild or webpack. <code>xlvane/node</code> and the command line need Node.js. Reading is tested on 340 files of the Apache POI test corpus (written by Excel for Windows, Mac and the web, LibreOffice, ONLYOFFICE and others, and damaged files) and on files saved by LibreOffice; see <code>tests/corpus/</code>.</p>
+<h2 id="command-line-in-5-minutes"><a class="anchor" href="#command-line-in-5-minutes" aria-hidden="true">#</a>Command line in 5 minutes</h2>
+<p>The package installs an <code>xlvane</code> command (Node.js 22 or later): <code>npm install xlvane</code> in a project and run <code>npx xlvane</code>, or <code>npm install -g xlvane</code>.</p>
+<pre><code class="language-sh">xlvane                                    # what the tool does and the common commands
+xlvane inspect report.xlsx                # sheets, used ranges, header rows, column types, warnings
+xlvane read report.xlsx --sheet Sales     # a sheet as a table (first 50 rows; --limit, --range)
+xlvane convert report.xlsx sales.csv      # XLSX to CSV or JSON, or CSV/JSON to XLSX
+xlvane create data.json report.xlsx       # a formatted report from JSON or CSV
+xlvane edit report.xlsx --set &quot;Sales!B2=1250&quot; -o updated.xlsx
+xlvane diff report.xlsx updated.xlsx      # what changed; exit code 1 when they differ
+xlvane validate report.xlsx --columns &quot;Region:string,Revenue:number&quot;
+xlvane help edit                          # usage and examples of one command</code></pre>
+<ul><li>Nothing is overwritten without <code>--force</code>. Commands that write accept <code>--dry-run</code> and end with the path they wrote.</li><li>Errors say what happened, where, and what to do next, often with a ready-to-run <code>Try:</code> command; typos get &quot;Did you mean …?&quot;.</li><li><code>--json</code> prints one JSON document per command with a documented schema (<a href="cli-json.html">docs/cli-json.md</a>). Exit codes: 0 success, 1 a check found something (<code>diff</code>, <code>validate</code>), 2 usage error, 3 input or file error.</li><li>Colour (red errors, yellow warnings, green results, bold headings) is used only on a terminal and never carries information alone; <code>NO_COLOR</code> or <code>TERM=dumb</code> turn it off, <code>FORCE_COLOR=1</code> turns it on. Control characters from files, such as an escape character in a cell, are shown as <code>\x1b</code> and never reach the terminal.</li><li>Tables and summaries go to separate streams: <code>xlvane read report.xlsx &gt; out.txt</code> writes only the table; the row count and warnings notes go to stderr.</li><li><code>xlvane migrate</code> prepares a project for <code>@xlvane/compat</code>.</li></ul>
+<h2 id="reading-a-workbook"><a class="anchor" href="#reading-a-workbook" aria-hidden="true">#</a>Reading a workbook</h2>
+<pre><code class="language-ts">import { readWorkbook } from &#39;xlvane&#39;;
+
+declare const bytes: Uint8Array; // the file&#39;s contents
+const workbook = readWorkbook(bytes); // Uint8Array or ArrayBuffer
+const sheet = workbook.getSheet(&#39;Sales&#39;);
+console.log(sheet.cell(&#39;B2&#39;)?.value);
+for (const row of sheet.rows()) {
+  console.log(row.map((cell) =&gt; cell.value));
+}</code></pre>
+<p>In Node.js:</p>
+<pre><code class="language-ts">import { readWorkbookFile } from &#39;xlvane/node&#39;;
+
+const workbook = await readWorkbookFile(&#39;report.xlsx&#39;);</code></pre>
+<p>Cell values are numbers, strings, booleans, <code>Date</code>s (for date-formatted numbers and ISO date cells; the UTC fields of the <code>Date</code> hold the spreadsheet&#39;s date and time), error codes such as <code>&quot;#DIV/0!&quot;</code> (with <code>type: &quot;error&quot;</code>) or <code>null</code>. Formula cells carry <code>formula.text</code> and the cached result stored in the file; xlvane does not calculate formulas. Cells that have neither a value nor a formula are not part of <code>cells()</code>; those that hold only a style are listed by <code>sheet.styledCells()</code> (and <code>styledCells</code> of each streamed row), so tables, CSV and <code>inspect</code> see only data.</p>
+<h2 id="writing-a-workbook"><a class="anchor" href="#writing-a-workbook" aria-hidden="true">#</a>Writing a workbook</h2>
+<pre><code class="language-ts">import { createWorkbook, writeWorkbook } from &#39;xlvane&#39;;
+
+const workbook = createWorkbook(); // { dateSystem: &#39;1904&#39; } for the 1904 date system
+const sheet = workbook.addSheet(&#39;Sales&#39;);
+const header = { font: { bold: true }, fill: { color: &#39;D9E1F2&#39; }, border: { bottom: { style: &#39;thin&#39; } } } as const;
+sheet.set(&#39;A1&#39;, &#39;Region&#39;, header).set(&#39;B1&#39;, &#39;Revenue&#39;, header).set(&#39;C1&#39;, &#39;Date&#39;, header);
+sheet.set(&#39;A2&#39;, &#39;North&#39;).set(&#39;B2&#39;, 1250.5, { numFmt: &#39;#,##0.00&#39; }).set(&#39;C2&#39;, new Date(Date.UTC(2024, 0, 31)));
+sheet.set(&#39;B3&#39;, { formula: &#39;SUM(B2:B2)&#39;, result: 1250.5 });
+sheet.column(&#39;A&#39;, { width: 20 }).row(1, { height: 24 });
+sheet.merge(&#39;A5:C5&#39;).freeze({ rows: 1 }).autoFilter(&#39;A1:C2&#39;);
+const bytes = writeWorkbook(workbook); // Uint8Array</code></pre>
+<p>In Node.js, <code>writeWorkbookFile(workbook, &#39;sales.xlsx&#39;)</code> from <code>xlvane/node</code> writes the file; it never replaces an existing file unless you pass <code>{ overwrite: true }</code>.</p>
+<ul><li>Values: numbers, strings, booleans, <code>Date</code>s (stored as serial numbers with a <code>yyyy-mm-dd</code> or <code>yyyy-mm-dd hh:mm:ss</code> format unless the style sets one), <code>{ error: &#39;#N/A&#39; }</code>, and <code>{ formula, result }</code>, also as an array formula (<code>{ formula, array: &#39;A1:A3&#39; }</code>) or a shared formula (<code>{ formula, shared: &#39;B1:B9&#39; }</code> on the first cell, <code>{ sharedFormula: &#39;B1&#39; }</code> on the others). xlvane writes the formula text and the cached result you give; it does not calculate formulas.</li><li>Styles: font (name, size, bold, italic, underline, strike, colour, superscript and subscript, family, scheme, charset, outline, shadow), fill (solid colour, pattern, or linear and path gradient), borders (top, right, bottom, left, diagonal), alignment (horizontal, vertical, wrap, shrink to fit, indent, rotation, reading order), cell protection (<code>locked</code>, <code>hidden</code>) and number format. Identical styles are stored once. <code>sheet.style(range, style)</code> merges a style into every cell of a range.</li><li>Layout: column widths and hidden columns, row heights and hidden rows, outline levels of rows and columns (<code>row(n, { outlineLevel: 1, collapsed })</code>, <code>column(&#39;B&#39;, { outlineLevel: 1 })</code>), merged ranges, frozen rows and columns, autofilter, hidden and very hidden sheets. <code>sheet.properties({ defaultRowHeight, outlineLevelRow, outlineLevelCol, summaryBelow, summaryRight })</code> sets the sheet&#39;s format properties.</li><li>Workbook: <code>workbook.views([{ x, y, width, height, firstSheet, activeTab, visibility }])</code> sets the workbook windows (<code>activeTab</code> and <code>firstSheet</code> are checked against the sheets when the workbook is written) and <code>workbook.calculation({ fullCalcOnLoad: true })</code> asks applications to recalculate when the file is opened. <code>addSheet(name, { sheetId })</code> sets the sheet&#39;s id in the file (1 to 65534, unique; other sheets get the lowest unused ids), and reading gives <code>sheet.sheetId</code>.</li><li>Writer options: <code>writeWorkbook(workbook, { sharedStrings: false })</code> writes text inline instead of in a shared string table; <code>{ compressionLevel: 0 }</code> (0–9, default 6) stores or compresses the parts. The same options work for <code>writeWorkbookFile</code> and, with <code>compressionLevel</code>, <code>writeWorkbookStream</code>.</li><li>Invalid input is rejected when it is set, with an <code>XlvError</code> saying what and where, for example <code>XLV_E_INVALID_SHEET_NAME</code> or <code>XLV_E_INVALID_STYLE</code> with the allowed values.</li><li>The output is deterministic: the same workbook always gives the same bytes. The exception is a protection password (<code>protect({ password })</code>), whose verifier gets a random salt; pass a fixed salt through <code>hashPassword</code> for identical bytes. The test suite opens written files that use all of these features in LibreOffice and checks the values, styles and layout it sees.</li></ul>
+<p>Reading returns the same information: <code>cell.style</code>, <code>cell.formula</code>, <code>sheet.columns</code>, <code>sheet.rowInfo(row)</code>, <code>sheet.properties</code>, <code>sheet.freeze</code> and <code>sheet.autoFilter</code>.</p>
+<h3 id="rich-text-document-properties-defined-names-column-styles"><a class="anchor" href="#rich-text-document-properties-defined-names-column-styles" aria-hidden="true">#</a>Rich text, document properties, defined names, column styles</h3>
+<pre><code class="language-ts">import { createWorkbook, readWorkbook, writeWorkbook } from &#39;xlvane&#39;;
+
+const workbook = createWorkbook({ properties: { title: &#39;Q3 sales&#39;, creator: &#39;Finance&#39;, created: new Date(Date.UTC(2026, 9, 1)) } });
+const sheet = workbook.addSheet(&#39;Sales&#39;);
+sheet.set(&#39;A1&#39;, { richText: [{ text: &#39;Total &#39;, font: { bold: true } }, { text: &#39;(EUR)&#39;, font: { color: &#39;808080&#39; } }] });
+sheet.set(&#39;B1&#39;, 1250.5).set(&#39;C1&#39;, new Date(Date.UTC(2026, 9, 1)), { numFmt: 14 });
+sheet.column(&#39;B&#39;, { width: 14, style: { numFmt: &#39;#,##0.00&#39; } });
+workbook.defineName(&#39;Total&#39;, &#39;Sales!$B$1&#39;);
+
+const read = readWorkbook(writeWorkbook(workbook));
+console.log(read.properties.title, read.definedNames, read.getSheet(&#39;Sales&#39;).cell(&#39;A1&#39;)?.richText);</code></pre>
+<ul><li><strong>Rich text:</strong> <code>{ richText: [{ text, font? }] }</code> writes text whose parts have their own fonts. Reading keeps <code>cell.value</code> as the plain text and adds <code>cell.richText</code> with the runs. Run fonts take the same properties as cell fonts.</li><li><strong>Document properties:</strong> <code>properties</code> (<code>title</code>, <code>subject</code>, <code>creator</code>, <code>keywords</code>, <code>description</code>, <code>lastModifiedBy</code>, <code>category</code>, <code>created</code>, <code>modified</code>, <code>lastPrinted</code>, and a few more) are stored in <code>docProps/core.xml</code>, only when at least one is set. Read them from <code>workbook.properties</code>. <code>company</code>, <code>manager</code>, <code>application</code> and <code>appVersion</code> go to <code>docProps/app.xml</code>.</li><li><strong>Defined names:</strong> <code>workbook.defineName(name, refersTo, { sheet?, hidden?, comment? })</code>; <code>workbook.definedNames</code> lists the names of a file that was read, built-in names such as <code>_xlnm._FilterDatabase</code> included. Invalid names throw <code>XLV_E_INVALID_DEFINED_NAME</code>.</li><li><strong>Column styles:</strong> <code>column(c, { style })</code> stores a default style for the column. Applications use it for cells added later; xlvane does not apply it to the cells you set. Reading gives <code>sheet.columns[i].style</code>.</li><li><strong>Built-in number formats:</strong> <code>numFmt</code> may be a built-in format number such as <code>14</code> (a date shown in the reader&#39;s local date order). A format code string such as <code>&#39;yyyy-mm-dd&#39;</code> is shown the same everywhere.</li></ul>
+<h3 id="hyperlinks-notes-tab-colour-and-view"><a class="anchor" href="#hyperlinks-notes-tab-colour-and-view" aria-hidden="true">#</a>Hyperlinks, notes, tab colour and view</h3>
+<pre><code class="language-ts">import { createWorkbook, readWorkbook, writeWorkbook } from &#39;xlvane&#39;;
+
+const workbook = createWorkbook({ properties: { company: &#39;Example Ltd&#39; } });
+const sheet = workbook.addSheet(&#39;Links&#39;).tabColor(&#39;FF0070C0&#39;).view({ zoom: 120, showGridLines: false });
+sheet.set(&#39;A1&#39;, &#39;Docs&#39;).link(&#39;A1&#39;, { url: &#39;https://example.com/docs&#39;, tooltip: &#39;Open the docs&#39; });
+sheet.set(&#39;A2&#39;, &#39;Back to top&#39;).link(&#39;A2&#39;, { location: &#39;Links!A1&#39; });
+sheet.set(&#39;B2&#39;, 1250).note(&#39;B2&#39;, { text: &#39;Estimate from March&#39;, author: &#39;Ann&#39; });
+
+const read = readWorkbook(writeWorkbook(workbook)).getSheet(&#39;Links&#39;);
+console.log(read.hyperlinks, read.notes, read.cell(&#39;B2&#39;)?.note?.text, read.tabColor, read.view.zoom);</code></pre>
+<ul><li><strong>Hyperlinks:</strong> <code>link(range, { url | location, tooltip?, display? })</code>. A <code>url</code> (web page, <code>mailto:</code>, file) is stored as an external relationship of the sheet; a <code>location</code> (a place in the workbook) is stored without one. The cell text is set with <code>set</code>. Reading gives <code>sheet.hyperlinks</code> and <code>cell.hyperlink</code>; xlvane never opens a target, and <code>XLV_W_UNUSUAL_HYPERLINK</code> reports targets other than http(s) or mailto.</li><li><strong>Notes (comments):</strong> <code>note(cell, text | { text | runs, author?, box? })</code>; <code>box</code> sets the note box: <code>margins</code> in millimetres, <code>autoMargins</code>, <code>locked</code>, <code>lockText</code>, <code>anchor</code> (<code>&#39;absolute&#39;</code>, <code>&#39;oneCell&#39;</code>, <code>&#39;twoCell&#39;</code>); reading gives the same as <code>note.box</code>. The cell needs no value. Notes are written hidden, as spreadsheet applications show them when the pointer rests on the cell. Reading gives <code>sheet.notes</code> and <code>cell.note</code> (<code>text</code>, <code>author</code>, and <code>runs</code> for rich text). Threaded comments of current Excel versions are not read; their placeholder notes are, with <code>XLV_W_THREADED_COMMENTS</code>.</li><li><strong>Tab colour and view:</strong> <code>tabColor(color)</code>, and <code>view({ zoom, zoomScaleNormal, showGridLines, showRowColHeaders, showRuler, rightToLeft, layout, split, topLeftCell, activeCell })</code>; a split window takes <code>split: { x, y, topLeftCell }</code> in points, where <code>topLeftCell</code> is the first cell shown in the bottom-right pane. Reading gives <code>sheet.tabColor</code>, <code>sheet.view</code>, <code>sheet.properties</code>, <code>workbook.views</code> and <code>workbook.calculation</code>.</li><li><strong>Streaming:</strong> <code>writeWorkbookStream</code> takes <code>hyperlinks</code> and <code>notes</code> per row (<code>{ values, hyperlinks: [...], notes: [...] }</code>, by column position) and <code>tabColor</code>/<code>view</code> per sheet. <code>openWorkbookStream</code> sets <code>cell.note</code> on the rows it returns and lists a sheet&#39;s notes with <code>notes(sheet)</code>; it does not set <code>cell.hyperlink</code>.</li><li><code>editCells</code> and <code>appendRows</code> keep existing links and notes but cannot add new ones yet.</li></ul>
+<h3 id="images"><a class="anchor" href="#images" aria-hidden="true">#</a>Images</h3>
+<pre><code class="language-ts">import { createWorkbook, readWorkbook, writeWorkbook } from &#39;xlvane&#39;;
+
+declare const png: Uint8Array; // the bytes of a PNG, JPEG or GIF file
+const workbook = createWorkbook();
+const logo = workbook.addImage(png);
+const sheet = workbook.addSheet(&#39;Report&#39;).set(&#39;A1&#39;, &#39;Quarterly report&#39;);
+sheet.addImage(logo, &#39;E1:G4&#39;, { description: &#39;Company logo&#39;, hyperlink: &#39;https://example.com&#39; });
+sheet.addImage(logo, { from: &#39;A6&#39;, size: { width: 160, height: 90 } });
+
+const read = readWorkbook(writeWorkbook(workbook));
+for (const picture of read.getSheet(&#39;Report&#39;).images) console.log(picture.anchor, picture.image?.format);</code></pre>
+<ul><li><strong>Adding:</strong> <code>workbook.addImage(bytes)</code> takes PNG, JPEG or GIF bytes (recognised from the first bytes; other formats throw <code>XLV_E_INVALID_IMAGE</code>) and returns a number; the same image placed many times is stored once. <code>sheet.addImage(image, anchor, { name?, description?, hyperlink? })</code> places it over a range (<code>&quot;E1:G4&quot;</code>), between two corners (<code>{ from, to, editAs }</code>, each a cell or a 0-based <code>{ col, row }</code> with fractions) or at a corner with a size in pixels (<code>{ from, size }</code>). <code>sheet.background(image)</code> sets the sheet background. Pixels are converted at 96 per inch (9525 EMU); fractional positions use the sheet&#39;s column widths and row heights.</li><li><strong>Reading:</strong> <code>sheet.images</code> lists the pictures (<code>anchor</code> in EMU with the cell of each corner, <code>image</code> with <code>format</code>, <code>contentType</code> and <code>bytes</code>, <code>description</code>, <code>hyperlink</code>), <code>sheet.backgroundImage</code> the background, and <code>workbook.images</code> every image once. Charts, shapes and other drawing objects are not read; <code>XLV_W_DRAWING_CONTENT_NOT_READ</code> reports them, and <code>editCells</code> keeps them unchanged.</li><li><strong>Rows:</strong> <code>insertRows</code> and <code>deleteRows</code> move pictures with their rows. A deletion that would cut a picture, and a drawing with charts or shapes, are refused with <code>XLV_E_NOT_SUPPORTED</code>.</li><li><strong>Streaming:</strong> <code>writeWorkbookStream({ images: [png], sheets: [{ images: [{ image: 0, anchor: &#39;B2:D6&#39; }], background: 0, rows }] })</code>.</li></ul>
+<h3 id="sheet-rules-and-printing"><a class="anchor" href="#sheet-rules-and-printing" aria-hidden="true">#</a>Sheet rules and printing</h3>
+<pre><code class="language-ts">import { createWorkbook, readWorkbook, writeWorkbook } from &#39;xlvane&#39;;
+
+const workbook = createWorkbook();
+const sheet = workbook.addSheet(&#39;Report&#39;).set(&#39;A1&#39;, &#39;Quarterly report&#39;);
+sheet.pageSetup({ orientation: &#39;landscape&#39;, paperSize: 9, margins: { left: 0.5, right: 0.5 }, fitToPage: true, fitToWidth: 1, fitToHeight: 0 });
+sheet.headerFooter({ oddHeader: &#39;&amp;C&amp;A&#39;, oddFooter: &#39;&amp;LPrinted &amp;D&amp;RPage &amp;P of &amp;N&#39; });
+sheet.printArea(&#39;A1:H40&#39;).printTitles({ rows: &#39;1:2&#39; }).pageBreaks({ rows: [21] });
+sheet.protect({ sort: false, autoFilter: false });
+
+const read = readWorkbook(writeWorkbook(workbook)).getSheet(&#39;Report&#39;);
+console.log(read.pageSetup.orientation, read.printArea, read.printTitles, read.protection?.sheet);</code></pre>
+<ul><li><strong>Page setup:</strong> <code>pageSetup({ margins, orientation, paperSize, scale, fitToPage, fitToWidth, fitToHeight, pageOrder, blackAndWhite, draft, cellComments, errors, firstPageNumber, horizontalDpi, verticalDpi, copies, printOptions })</code>. Margins are in inches. Values outside the limits Office documents (for example margins of 49 inches or more, a scale other than 10–400 or 0) throw <code>XLV_E_INVALID_OPTION</code> with the allowed range.</li><li><strong>Headers and footers:</strong> <code>headerFooter({ oddHeader, oddFooter, evenHeader, evenFooter, firstHeader, firstFooter, differentOddEven, differentFirst, … })</code>, with the codes <code>&amp;L</code>, <code>&amp;C</code>, <code>&amp;R</code> (sections), <code>&amp;P</code> (page), <code>&amp;N</code> (pages), <code>&amp;D</code> (date), <code>&amp;A</code> (sheet), <code>&amp;F</code> (file), <code>&amp;&amp;</code> (an ampersand) and others; at most 255 characters each.</li><li><strong>Print area, titles and page breaks:</strong> <code>printArea(range | ranges)</code>, <code>printTitles({ rows: &#39;1:2&#39;, columns: &#39;A&#39; })</code> and <code>pageBreaks({ rows: [21], columns: [&#39;F&#39;] })</code> (the rows and columns that start a new page). The print area and titles are stored as the built-in names <code>_xlnm.Print_Area</code> and <code>_xlnm.Print_Titles</code>; <code>insertRows</code> and <code>deleteRows</code> move them.</li><li><strong>Protection:</strong> <code>protect(flags)</code> turns on sheet protection. Each flag is <code>true</code> when the action is locked, as in the file: <code>protect({ sort: false })</code> keeps sorting allowed. Flags not given keep the schema defaults. <code>protect({ password: &#39;secret&#39; })</code> stores a SHA-512 password verifier (100,000 iterations, random salt; <code>hashPassword</code> gives a fixed salt or another algorithm), and <code>workbook.protect({ password })</code> protects the workbook structure. A protection password is not encryption: the content stays readable, and spreadsheet applications only refuse changes without it. Reading gives <code>sheet.protection</code> and <code>workbook.protection</code>; <code>verifyPassword(protection, password)</code> checks a password against them, including legacy 4-digit verifiers.</li><li><strong>Reading</strong> gives <code>sheet.pageSetup</code> (with defaults), <code>sheet.headerFooter</code>, <code>sheet.pageBreaks</code>, <code>sheet.printArea</code> and <code>sheet.printTitles</code>. <code>writeWorkbookStream</code> takes the same settings per sheet (<code>pageSetup</code>, <code>headerFooter</code>, <code>pageBreaks</code>, <code>printArea</code>, <code>printTitles</code>, <code>protect</code>).</li></ul>
+<h3 id="data-validation-and-conditional-formatting"><a class="anchor" href="#data-validation-and-conditional-formatting" aria-hidden="true">#</a>Data validation and conditional formatting</h3>
+<pre><code class="language-ts">import { createWorkbook, readWorkbook, writeWorkbook } from &#39;xlvane&#39;;
+
+const workbook = createWorkbook();
+const sheet = workbook.addSheet(&#39;Orders&#39;).set(&#39;A1&#39;, &#39;Status&#39;).set(&#39;B1&#39;, &#39;Quantity&#39;).set(&#39;C1&#39;, &#39;Total&#39;);
+sheet.validate(&#39;A2:A500&#39;, { type: &#39;list&#39;, formula1: &#39;&quot;Open,Shipped,Paid&quot;&#39;, showErrorMessage: true, error: &#39;Pick a status from the list.&#39; });
+sheet.validate(&#39;B2:B500&#39;, { type: &#39;whole&#39;, operator: &#39;greaterThan&#39;, formula1: 0, showInputMessage: true, prompt: &#39;Quantity, at least 1&#39; });
+sheet.conditionalFormat(&#39;C2:C500&#39;, [
+  { type: &#39;cellIs&#39;, operator: &#39;greaterThan&#39;, formulas: [1000], style: { fill: { pattern: &#39;solid&#39;, fgColor: &#39;FFC7CE&#39; } } },
+  { type: &#39;colorScale&#39;, colorScale: { cfvo: [{ type: &#39;min&#39; }, { type: &#39;max&#39; }], colors: [&#39;F8696B&#39;, &#39;63BE7B&#39;] } },
+]);
+
+const read = readWorkbook(writeWorkbook(workbook)).getSheet(&#39;Orders&#39;);
+console.log(read.dataValidations.length, read.conditionalFormats.map((f) =&gt; f.sqref));</code></pre>
+<ul><li><strong>Data validation:</strong> <code>validate(range, rule)</code> with <code>type</code> <code>list</code>, <code>whole</code>, <code>decimal</code>, <code>date</code>, <code>time</code>, <code>textLength</code> or <code>custom</code>, an <code>operator</code>, <code>formula1</code>/<code>formula2</code>, input and error messages. <code>validate(range, null)</code> removes the validations added for exactly that range. Rules that Office would reject (a missing <code>formula1</code>, a message longer than the Office limit) throw <code>XLV_E_INVALID_OPTION</code> naming the property.</li><li><strong>Conditional formatting:</strong> <code>conditionalFormat(range, rules)</code> with <code>cellIs</code>, <code>expression</code>, <code>colorScale</code>, <code>dataBar</code>, <code>iconSet</code>, <code>top10</code>, <code>aboveAverage</code>, <code>containsText</code>, <code>timePeriod</code>, <code>duplicateValues</code> and the other rule types of the file format; <code>style</code> is a differential style (font, fill, border, number format). Priorities are numbered in the order the rules are added unless given.</li><li><strong>Reading</strong> gives <code>sheet.dataValidations</code> and <code>sheet.conditionalFormats</code>; <code>insertRows</code> and <code>deleteRows</code> move them with their rows, and <code>editCells</code> keeps them unchanged.</li></ul>
+<h3 id="tables"><a class="anchor" href="#tables" aria-hidden="true">#</a>Tables</h3>
+<pre><code class="language-ts">import { createWorkbook, readTable, readWorkbook, writeWorkbook } from &#39;xlvane&#39;;
+
+const workbook = createWorkbook();
+workbook.addSheet(&#39;Data&#39;).addTable({
+  name: &#39;Sales&#39;,
+  ref: &#39;B2&#39;,
+  totalsRow: true,
+  style: { theme: &#39;TableStyleMedium9&#39;, showRowStripes: true },
+  columns: [{ name: &#39;Region&#39;, totalsRowLabel: &#39;Total&#39; }, { name: &#39;Revenue&#39;, totalsRowFunction: &#39;sum&#39; }],
+  rows: [[&#39;North&#39;, 1200], [&#39;South&#39;, 980]],
+});
+const bytes = writeWorkbook(workbook);
+console.log(readWorkbook(bytes).getSheet(&#39;Data&#39;).tables.map((t) =&gt; [t.displayName, t.ref]));
+console.log(readTable(bytes, { table: &#39;Sales&#39; }).rows); // [{ Region: &#39;North&#39;, Revenue: 1200 }, …]</code></pre>
+<ul><li><strong>Writing:</strong> <code>addTable({ name, displayName, ref, headerRow, totalsRow, style, columns, rows })</code> writes the header row (the column names), the data rows and the totals row into the cells, and the table part. <code>ref</code> is the top-left cell or the whole range. Totals use <code>SUBTOTAL</code> (<code>sum</code>, <code>average</code>, <code>count</code>, <code>countNums</code>, <code>min</code>, <code>max</code>, <code>stdDev</code>, <code>var</code>), a label (<code>totalsRowLabel</code>) or a custom formula; <code>calculatedColumnFormula</code> fills the empty data cells of a column. Styles are the 60 built-in table styles. Names follow the rules of defined names (no spaces) and are unique in the workbook together with the defined names; tables must not overlap other tables or merged cells; violations throw <code>XLV_E_INVALID_TABLE</code>.</li><li><strong>Reading:</strong> <code>sheet.tables</code> lists each table with its range, header and totals rows, columns (totals functions and formulas) and style. <code>readTable(bytes, { table: &#39;Sales&#39; })</code> reads the data rows of a table by name; an unknown name throws <code>XLV_E_TABLE_NOT_FOUND</code> with the available names.</li><li><strong>Streaming:</strong> <code>writeWorkbookStream</code> takes <code>tables</code> per sheet with the whole range in <code>ref</code>; the header, data and totals values are streamed as rows.</li><li><strong>Editing:</strong> <code>editCells</code> keeps tables as they are; <code>insertRows</code> and <code>deleteRows</code> move, grow and shrink them with their rows and refuse to delete a table&#39;s header row, totals row or all of its data rows.</li></ul>
+<h2 id="tasks-in-one-call"><a class="anchor" href="#tasks-in-one-call" aria-hidden="true">#</a>Tasks in one call</h2>
+<pre><code class="language-ts">import { readTable, writeTable, editCells, appendRows, diff, toCSV, fromCSV, toJSON, fromJSON } from &#39;xlvane&#39;;
+import { z } from &#39;zod&#39;; // or any Standard Schema library: Valibot, ArkType, …
+
+declare const bytes: Uint8Array; // the file&#39;s contents
+
+// Rows as objects, validated; problems come with cell addresses.
+const { rows, issues } = readTable(bytes, { sheet: &#39;Orders&#39;, schema: z.object({ Customer: z.string(), Total: z.number() }) });
+
+// A formatted report: bold header, frozen first row, filter, fitted widths.
+const report = writeTable(rows, { sheet: &#39;Report&#39;, columns: [&#39;Customer&#39;, { key: &#39;Total&#39;, numFmt: &#39;#,##0.00&#39; }] });
+
+// Change cells or add rows in an existing file; everything else in the file stays as it was.
+const { bytes: edited } = editCells(bytes, [{ sheet: &#39;Orders&#39;, cell: &#39;B7&#39;, value: 120.5 }]);
+const { bytes: appended } = appendRows(bytes, &#39;Orders&#39;, [{ Customer: &#39;Dan&#39;, Total: 42 }]);
+
+// What changed between two versions, as JSON.
+console.log(diff(bytes, edited).sheets[0]?.cells);
+
+// CSV and JSON in both directions. toCSV escapes text that spreadsheets would run as formulas.
+const csv = toCSV(bytes, { sheet: &#39;Orders&#39; });
+const fromText = fromCSV(&#39;sku,stock\r\nA-1,12\r\n&#39;);
+const json = toJSON(bytes).rows;
+const fromData = fromJSON([{ sku: &#39;A-1&#39;, stock: 12 }]);</code></pre>
+<ul><li><code>readTable</code> finds the header row like <code>inspect()</code>, or takes <code>header: 3</code> or <code>header: false</code>. With a schema, <code>rows</code> has the schema&#39;s output type. Asynchronous schemas need <code>readTableAsync</code>.</li><li>Warnings about the file (for example a shared formula that could not be expanded) are in <code>workbook.warnings</code>; <code>readTable</code>, <code>readTableAsync</code>, <code>toJSON</code> and <code>toCSV</code> also pass each of them to <code>onWarning</code>: <code>readTable(bytes, { onWarning: (w) =&gt; console.warn(w.code, w.message) })</code>.</li><li>Dates: <code>readTable</code> returns <code>Date</code>s (their UTC fields hold the sheet&#39;s date and time); <code>dates: &quot;iso&quot;</code>, <code>toJSON</code> and <code>toCSV</code> give ISO 8601 text without a time zone, <code>2024-01-31</code> or <code>2024-01-31T13:45:00</code>.</li><li><code>editCells</code> and <code>appendRows</code> change only the cells they write, plus new entries in the shared strings and styles. Charts, comments, conditional formatting, data validation, defined names and every other part are kept byte for byte. xlvane does not calculate formulas. When the workbook has formulas, the result carries <code>XLV_W_FORMULAS_NOT_RECALCULATED</code> and the file asks spreadsheet applications to recalculate on load.</li><li><code>fromCSV</code> never creates formulas. It converts plain numbers, booleans and ISO dates (<code>types: &quot;infer&quot;</code>); numbers with leading zeros, whole numbers with more than 15 digits (IDs) and numbers a double cannot hold (<code>1e400</code>, <code>1e-400</code>) stay text. Every number <code>toCSV</code> writes reads back as the same number, except whole numbers above 15 digits. At most <code>maxCells</code> fields are read (default 5 000 000).</li><li>Round trips: XLSX → CSV → XLSX keeps numbers, booleans and dates. XLSX → JSON → XLSX keeps numbers and booleans, but dates come back as text, because JSON has no date type and <code>fromJSON</code> does not guess; convert such fields to <code>Date</code> before <code>fromJSON</code> or <code>writeTable</code>.</li><li>Shared formulas are translated to each cell when reading. If a formula cannot be translated safely, its <code>formula.text</code> is <code>null</code> and the reader reports <code>XLV_W_SHARED_FORMULA_NOT_EXPANDED</code>.</li></ul>
+<h3 id="inserting-and-deleting-rows"><a class="anchor" href="#inserting-and-deleting-rows" aria-hidden="true">#</a>Inserting and deleting rows</h3>
+<pre><code class="language-ts">import { insertRows, deleteRows } from &#39;xlvane&#39;;
+
+declare const bytes: Uint8Array;
+// Two rows before row 5 of &quot;Orders&quot;, formatted like row 4.
+const { bytes: wider } = insertRows(bytes, { sheet: &#39;Orders&#39;, at: 5, count: 2, style: &#39;above&#39; });
+// Rows 10 to 12 of &quot;Orders&quot;.
+const { bytes: shorter } = deleteRows(wider, { sheet: &#39;Orders&#39;, at: 10, count: 3 });</code></pre>
+<ul><li>Like <code>editCells</code>, they change an existing file in place and keep every other part as it was.</li><li>References follow the rows as in a spreadsheet application: formulas on every sheet, merged cells, hyperlinks, notes, the autofilter, conditional formats (with their thresholds), data validation, page breaks and defined names. A range grows when rows are inserted inside it and shrinks when some of its rows are deleted; a reference whose cells are all deleted becomes <code>#REF!</code>. The rules are in docs/facts/ref-adjust.md (observed in LibreOffice; not yet checked against Excel).</li><li>Tables move, grow and shrink with their rows; deleting a table&#39;s header row, totals row or all of its data rows is refused.</li><li>Pictures move with their rows. Drawings with charts, shapes or form controls, a deletion that would cut a picture, parts xlvane cannot rewrite (charts or pivot tables that may refer to the sheet), and formulas xlvane cannot rewrite safely (for example 3-D references such as <code>Jan:Mar!A1</code> that include the sheet) are refused with <code>XLV_E_NOT_SUPPORTED</code>. Data that would be pushed past row 1048576 gives <code>XLV_E_LIMIT_EXCEEDED</code>.</li><li>Conditional formats and data validations of the [MS-XLSX] extension (extended data bars, the icon sets <code>3Stars</code>, <code>3Triangles</code>, <code>5Boxes</code> and <code>NoIcons</code>, and rules written by Excel) move with the rows too, and so do thresholds that refer to cells (<code>{ type: &#39;formula&#39;, value: &#39;$C$12&#39; }</code>). Other extended content that refers to cells, such as sparklines or slicers, is refused.</li><li>Sheet views (selection, frozen panes) are not changed.</li><li><code>adjustFormula</code> and <code>adjustRange</code> apply the same rules to formula text you hold yourself.</li></ul>
+<h2 id="large-files-streaming"><a class="anchor" href="#large-files-streaming" aria-hidden="true">#</a>Large files: streaming</h2>
+<pre><code class="language-ts">import { openWorkbookStream, writeWorkbookStream, readTableStream } from &#39;xlvane&#39;;
+import { openWorkbookStreamFile, writeWorkbookStreamFile } from &#39;xlvane/node&#39;;
+import { z } from &#39;zod&#39;;
+
+declare const file: Blob; // a File from an &lt;input&gt;, or fs.openAsBlob(path) in Node.js
+const schema = z.object({ id: z.number(), value: z.number() });
+
+// Read row by row: worksheet cells are never all in memory. A Blob (File, fs.openAsBlob) also
+// keeps the file itself out of memory.
+const book = await openWorkbookStreamFile(&#39;large.xlsx&#39;);
+for await (const row of book.rows(&#39;Data&#39;)) console.log(row.number, row.cells.map((c) =&gt; c.value));
+
+// Rows as validated objects, one at a time.
+for await (const { value, issues } of readTableStream(file, { schema })) { /* … */ }
+
+// Write: rows are pulled from a (async) iterable only as fast as the output is consumed.
+function* rows() {
+  yield { values: [&#39;id&#39;, &#39;value&#39;], style: { font: { bold: true } } };
+  for (let i = 1; i &lt;= 1_000_000; i++) yield [i, Math.sqrt(i)];
+}
+await writeWorkbookStreamFile(&#39;out.xlsx&#39;, { sheets: [{ name: &#39;Data&#39;, freeze: { rows: 1 }, autoFilter: true, rows: rows() }] });
+const stream = writeWorkbookStream({ sheets: [{ name: &#39;Data&#39;, rows: rows() }] }); // ReadableStream&lt;Uint8Array&gt;</code></pre>
+<ul><li>Memory stays constant: the test suite reads and writes 50 000 and 400 000 rows and checks that the retained heap does not grow. It measured under 1 MB in both cases.</li><li>Streamed text is stored in the cells (inline strings) by default. Pass <code>sharedStrings: true</code> for a shared string table, which is smaller when values repeat but kept in memory until the end.</li><li>Rows come in file order. A shared formula whose master cell comes later in the file cannot be translated while streaming.</li><li><code>maxCells</code> does not apply when streaming; single parts may decompress to 4 GiB (<code>STREAM_LIMIT_DEFAULTS</code>). All other limits apply.</li><li><code>readTableStream</code> differs from <code>readTable</code> in what it can see in advance: it detects the header row among the first rows it reads and fixes the columns there (the columns of the header row, or of the first rows without one), so a column that first appears further down is not part of the objects. <code>readTable</code> takes the columns of the whole sheet. For files that fit in memory, <code>readTable</code> gives the complete table.</li></ul>
+<h2 id="benchmark"><a class="anchor" href="#benchmark" aria-hidden="true">#</a>Benchmark</h2>
+<p>100 000 rows × 20 columns (numbers, texts, dates, booleans). Median of 5 runs, each in a fresh Node.js 22.22.0 process. Machine: Intel Xeon @ 2.10 GHz, 4 logical cores, 15.7 GiB RAM, Linux (a cloud VM). Measured on 2026-10-30. Peak RSS includes Node.js and the imported libraries; the baseline with all three libraries imported is 135 MiB. Method, raw data and caveats: <a href="https://github.com/DevXord/xlvane/blob/main/bench/perf/RESULTS.md">bench/perf/RESULTS.md</a>. Reproduce with <code>npm run bench</code>.</p>
+<div class="table"><table><thead><tr><th>Write</th><th>Time, s</th><th>Peak RSS, MiB</th><th></th><th>Read</th><th>Time, s</th><th>Peak RSS, MiB</th></tr></thead><tbody><tr><td>xlvane <code>writeWorkbook</code></td><td>9.37</td><td>1005</td><td></td><td>xlvane <code>readWorkbook</code></td><td>4.52</td><td>690</td></tr><tr><td>xlvane <code>writeWorkbookStream</code></td><td>4.91</td><td>170</td><td></td><td>xlvane <code>openWorkbookStream</code></td><td>5.32</td><td>309</td></tr><tr><td>exceljs 4.4.0 <code>Workbook</code></td><td>18.72</td><td>2102</td><td></td><td>exceljs <code>xlsx.load</code></td><td>6.80</td><td>889</td></tr><tr><td>exceljs <code>WorkbookWriter</code> (stream)</td><td>6.31</td><td>194</td><td></td><td>exceljs <code>WorkbookReader</code> (stream)</td><td>4.60</td><td>309</td></tr><tr><td>SheetJS 0.18.5 <code>XLSX.write</code></td><td>10.96</td><td>1002</td><td></td><td>SheetJS <code>XLSX.read</code></td><td>9.04</td><td>838</td></tr></tbody></table></div>
+<p>The streaming reader of exceljs was faster than xlvane&#39;s in this run (4.60 s against 5.32 s). SheetJS is the npm release 0.18.5, which has CVE-2023-30533; the benchmark reads only files it generated itself. The results come from one machine and one data mix.</p>
+<h2 id="inspecting-a-workbook"><a class="anchor" href="#inspecting-a-workbook" aria-hidden="true">#</a>Inspecting a workbook</h2>
+<p><code>inspect()</code> returns plain JSON data about the structure of a workbook: sheets and their visibility, used ranges, a detected header row, column types with example values, merged cells, formulas, rich-text cells, column styles, document properties, defined names and warnings. The schema is documented in <a href="inspect-json.html">docs/inspect-json.md</a>.</p>
+<pre><code class="language-ts">import { inspect } from &#39;xlvane&#39;;
+import { inspectFile } from &#39;xlvane/node&#39;;
+
+declare const bytes: Uint8Array;
+const report = inspect(bytes);          // or: await inspectFile(&#39;report.xlsx&#39;)
+console.log(JSON.stringify(report, null, 2));</code></pre>
+<h2 id="errors-and-warnings"><a class="anchor" href="#errors-and-warnings" aria-hidden="true">#</a>Errors and warnings</h2>
+<p>Problems with input files throw <code>XlvError</code> with a stable <code>code</code> (for example <code>XLV_E_SHEET_NOT_FOUND</code>), a <code>location</code> (part, sheet, cell), a <code>hint</code> saying what to do next and a <code>docsUrl</code>. <code>error.toJSON()</code> returns the same as data. Recoverable oddities are reported as warnings in <code>workbook.warnings</code>. All codes are described in <a href="errors.html">docs/errors.md</a>.</p>
+<h2 id="untrusted-input-and-limits"><a class="anchor" href="#untrusted-input-and-limits" aria-hidden="true">#</a>Untrusted input and limits</h2>
+<p>Every file is treated as untrusted:</p>
+<ul><li>ZIP: sizes are measured on the bytes actually decompressed, not taken from headers; overlapping entries, duplicate names, encrypted entries, unsupported compression methods and multi-disk archives are rejected; CRC-32 is verified.</li><li>XML: an own parser that rejects DTDs (so no external entities or entity expansion), recognises only the predefined entities, and does not recurse.</li><li>Data from the file never becomes a key of a plain object, so names like <code>__proto__</code> are harmless.</li><li>Macros are never run and external links are never followed; both are reported.</li></ul>
+<p>Limits can be changed per call, for example <code>readWorkbook(bytes, { limits: { maxCells: 50_000_000 } })</code>. Use <code>Infinity</code> to switch a limit off.</p>
+<div class="table"><table><thead><tr><th>Limit</th><th>Default</th><th>Protects against</th></tr></thead><tbody><tr><td><code>maxInputBytes</code></td><td>256 MiB</td><td>oversized input</td></tr><tr><td><code>maxEntries</code></td><td>10 000</td><td>archives with huge numbers of entries</td></tr><tr><td><code>maxEntryBytes</code></td><td>256 MiB</td><td>one part decompressing to a huge size</td></tr><tr><td><code>maxTotalBytes</code></td><td>512 MiB</td><td>all parts together decompressing to a huge size</td></tr><tr><td><code>maxCompressionRatio</code></td><td>200 (checked after <code>compressionRatioMinBytes</code>, 1 MiB)</td><td>zip bombs</td></tr><tr><td><code>maxXmlDepth</code></td><td>128</td><td>deeply nested XML</td></tr><tr><td><code>maxXmlAttributes</code></td><td>256</td><td>elements with huge numbers of attributes</td></tr><tr><td><code>maxXmlNameLength</code></td><td>1 024</td><td>huge element or attribute names</td></tr><tr><td><code>maxXmlTextLength</code></td><td>8 Mi characters</td><td>huge text nodes or attribute values</td></tr><tr><td><code>maxXmlTreeElements</code></td><td>1 000 000</td><td>huge workbook, styles or relationship parts (elements plus attributes)</td></tr><tr><td><code>maxCells</code></td><td>5 000 000</td><td>workbooks too large to hold in memory (measured: about 180 bytes per numeric cell, Node.js 26)</td></tr><tr><td><code>maxSharedStringChars</code></td><td>512 Mi characters</td><td>many cells pointing at one huge shared string (a few MB that become many GB when values are copied)</td></tr></tbody></table></div>
+<h2 id="package-size"><a class="anchor" href="#package-size" aria-hidden="true">#</a>Package size</h2>
+<p><strong>Size budget:</strong> 300 kB of gzip-compressed JavaScript for the library files in <code>dist/</code> (level 9, unminified as published; measured 209.1 kB for 1.0.0). <strong>CLI size budget:</strong> 40 kB for <code>dist/cli.js</code>, which is not loaded by <code>import &#39;xlvane&#39;</code> (measured 27.3 kB for 1.0.0). <code>npm run check:pkg</code> fails when the budget is exceeded. The only dependency, fflate, adds about 22 kB gzip (its <code>esm/browser.js</code>, measured the same way).</p>
+<h2 id="limitations"><a class="anchor" href="#limitations" aria-hidden="true">#</a>Limitations</h2>
+<ul><li>xlvane does not calculate formulas. It reads and writes formula text and the cached results stored in the file; edited files ask spreadsheet applications to recalculate when they are opened.</li><li>Password-protected (encrypted) workbooks and legacy <code>.xls</code> files are rejected with <code>XLV_E_UNSUPPORTED_CONTAINER</code>. A sheet protection password is not encryption and is supported.</li><li>Charts, shapes, pivot tables, slicers and form controls are not modelled: reading skips them (with a warning for drawings), <code>editCells</code> keeps them unchanged, and row operations refuse sheets where they would have to move.</li><li>The command line reads files, not standard input.</li></ul>
+<h2 id="links"><a class="anchor" href="#links" aria-hidden="true">#</a>Links</h2>
+<ul><li>Changes in each version: <a href="../changelog.html">CHANGELOG.md</a></li><li>Bugs and questions: <a href="https://github.com/DevXord/xlvane/issues">GitHub issues</a></li><li>Reporting a vulnerability: <a href="https://github.com/DevXord/xlvane/blob/main/SECURITY.md">SECURITY.md</a></li></ul>
+<p>License: MIT</p><p class="source">Source: <a href="https://github.com/DevXord/xlvane/blob/v1.1.0/packages/xlvane/README.md">packages/xlvane/README.md</a> (version 1.1.0)</p></article>
+</main>
+</div>
+<footer class="site-footer">
+  <p>xlvane 1.1.0, MIT License. Pages built from the package published on npm. <a href="https://github.com/DevXord/xlvane">Source on GitHub</a> · <a href="https://github.com/DevXord/xlvane/blob/main/SECURITY.md">Reporting a vulnerability</a></p>
+</footer>
+</body>
+</html>

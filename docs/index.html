@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>xlvane - read, inspect and write XLSX files</title>
+<meta name="description" content="xlvane reads, inspects and writes XLSX files and treats input files as untrusted. MIT license, one runtime dependency.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="bar">
+    <a class="brand" href="index.html"><span class="logo" aria-hidden="true"></span>xlvane</a>
+    <span class="version" title="Version on npm">1.1.0</span>
+    <nav class="main-nav" aria-label="Main"><a href="guide/index.html">Guide</a><a href="demo/index.html">Demo</a><a href="changelog.html">Changelog</a><a href="https://github.com/DevXord/xlvane">GitHub</a><a href="https://www.npmjs.com/package/xlvane">npm</a></nav>
+  </div>
+</header>
+<div class="layout">
+
+<main id="main">
+<section class="hero">
+  <h1>Read, inspect and write XLSX files</h1>
+  <p class="lead">xlvane is an MIT-licensed library for Excel workbooks that treats every input file as untrusted. ESM only, with one runtime dependency (<a href="https://github.com/101arrowz/fflate">fflate</a>). The core works with <code>Uint8Array</code> and has no Node.js dependencies; file helpers are in <code>xlvane/node</code>.</p>
+  <div class="install"><code>npm install xlvane</code></div>
+  <p class="actions"><a class="button primary" href="guide/index.html">Read the guide</a><a class="button" href="demo/index.html">Inspect a file in the browser</a><a class="button" href="https://github.com/DevXord/xlvane">GitHub</a></p>
+</section>
+
+<section>
+  <h2>Quick start</h2>
+  <pre><code class="language-ts">import { inspect, readTable, writeTable } from &#39;xlvane&#39;;
+import { readWorkbookFile } from &#39;xlvane/node&#39;;
+
+const workbook = await readWorkbookFile(&#39;orders.xlsx&#39;);
+console.log(inspect(workbook).sheets.map((s) =&gt; [s.name, s.usedRange])); // what is in the file
+const { rows } = readTable(workbook, { sheet: &#39;Orders&#39; }); // [{ Customer: &#39;Ann&#39;, Total: 120.5 }, …]
+const big = rows.filter((row) =&gt; typeof row[&#39;Total&#39;] === &#39;number&#39; &amp;&amp; row[&#39;Total&#39;] &gt; 100);
+const bytes = writeTable(big, { sheet: &#39;Big orders&#39; }); // a formatted .xlsx file as a Uint8Array</code></pre>
+</section>
+
+<section>
+  <h2>What it does</h2>
+  <div class="cards">
+    <a class="card" href="guide/index.html#reading-a-workbook"><h3>Reading</h3><p>Values, dates, formulas with their cached results, styles, merged cells, hyperlinks, notes, tables, pictures, data validation and conditional formatting.</p></a>
+    <a class="card" href="guide/index.html#inspecting-a-workbook"><h3>inspect()</h3><p>Plain JSON about a workbook: sheets, used ranges, the detected header row, column types with examples, formulas, defined names and warnings.</p></a>
+    <a class="card" href="guide/index.html#writing-a-workbook"><h3>Writing</h3><p>Styles, column widths, frozen panes, filters, rich text, links, notes, images, tables, sheet rules and print settings. The output is deterministic, except the random salt of a protection password.</p></a>
+    <a class="card" href="guide/index.html#tasks-in-one-call"><h3>Tasks in one call</h3><p><code>readTable</code> with schema validation, <code>writeTable</code>, CSV and JSON in both directions, <code>editCells</code>, <code>appendRows</code>, <code>insertRows</code>, <code>deleteRows</code> and <code>diff</code>.</p></a>
+    <a class="card" href="guide/index.html#large-files-streaming"><h3>Streaming</h3><p>Read row by row and write rows pulled from an iterable, with Web Streams, so the worksheet cells are never all in memory.</p></a>
+    <a class="card" href="guide/index.html#untrusted-input-and-limits"><h3>Untrusted input</h3><p>ZIP and XML limits, no DTDs or external entities, file data never used as object keys, CSV formula-injection protection. Every error has an <code>XLV_E_*</code> code, a location and a hint.</p></a>
+    <a class="card" href="guide/index.html#command-line-in-5-minutes"><h3>Command line</h3><p><code>xlvane inspect</code>, <code>read</code>, <code>convert</code>, <code>create</code>, <code>edit</code>, <code>diff</code>, <code>validate</code> and <code>migrate</code>, with <code>--json</code> output that follows documented schemas.</p></a>
+    <a class="card" href="guide/compat.html"><h3>@xlvane/compat</h3><p>The exceljs 4.4.0 API on top of xlvane, installed under the name <code>exceljs</code>. An independent project, not affiliated with exceljs.</p></a>
+  </div>
+</section>
+
+<section>
+  <h2>Command line</h2>
+  <pre><code class="language-sh">xlvane                                    # what the tool does and the common commands
+xlvane inspect report.xlsx                # sheets, used ranges, header rows, column types, warnings
+xlvane read report.xlsx --sheet Sales     # a sheet as a table (first 50 rows; --limit, --range)
+xlvane convert report.xlsx sales.csv      # XLSX to CSV or JSON, or CSV/JSON to XLSX
+xlvane create data.json report.xlsx       # a formatted report from JSON or CSV
+xlvane edit report.xlsx --set &quot;Sales!B2=1250&quot; -o updated.xlsx
+xlvane diff report.xlsx updated.xlsx      # what changed; exit code 1 when they differ
+xlvane validate report.xlsx --columns &quot;Region:string,Revenue:number&quot;
+xlvane help edit                          # usage and examples of one command</code></pre>
+</section>
+
+<section>
+  <h2>Tested environments</h2>
+  <p>The core API (reading, writing, inspect, tables, CSV, editing, diff, streaming with Web Streams) and <code>@xlvane/compat</code> are tested in Node.js 22, 24 and 26, Bun, Deno, Chromium (Playwright) and the Cloudflare Workers runtime (workerd), with the same test bundle (<code>npm run test:runtimes</code>). In Deno, import from <code>npm:xlvane</code>; in browsers and Workers, through a bundler such as Vite, esbuild or webpack. <code>xlvane/node</code> and the command line need Node.js. Reading is tested on 340 files of the Apache POI test corpus (written by Excel for Windows, Mac and the web, LibreOffice, ONLYOFFICE and others, and damaged files) and on files saved by LibreOffice; see <code>tests/corpus/</code>.</p>
+  <p>Version 1.1.0. Changes are listed in the <a href="changelog.html">changelog</a>.</p>
+</section>
+
+</main>
+</div>
+<footer class="site-footer">
+  <p>xlvane 1.1.0, MIT License. Pages built from the package published on npm. <a href="https://github.com/DevXord/xlvane">Source on GitHub</a> · <a href="https://github.com/DevXord/xlvane/blob/main/SECURITY.md">Reporting a vulnerability</a></p>
+</footer>
+</body>
+</html>

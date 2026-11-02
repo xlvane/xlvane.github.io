@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>inspect() report - xlvane</title>
+<meta name="description" content="inspect() report of xlvane 1.1.0, an XLSX library.">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../style.css">
+
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="bar">
+    <a class="brand" href="../index.html"><span class="logo" aria-hidden="true"></span>xlvane</a>
+    <span class="version" title="Version on npm">1.1.0</span>
+    <nav class="main-nav" aria-label="Main"><a href="../guide/index.html" aria-current="page">Guide</a><a href="../demo/index.html">Demo</a><a href="../changelog.html">Changelog</a><a href="https://github.com/DevXord/xlvane">GitHub</a><a href="https://www.npmjs.com/package/xlvane">npm</a></nav>
+  </div>
+</header>
+<div class="layout with-toc">
+<nav class="toc" aria-label="On this page"><p class="toc-title">On this page</p><ul><li class="toc-2"><a href="#options">Options</a></li><li class="toc-2"><a href="#workbook">Workbook</a></li><li class="toc-2"><a href="#sheet">Sheet</a></li><li class="toc-2"><a href="#column">Column</a></li><li class="toc-2"><a href="#warning">Warning</a></li><li class="toc-2"><a href="#example">Example</a></li></ul></nav>
+<main id="main">
+<nav class="guide-nav" aria-label="Guide"><a href="index.html">Guide</a><a href="compat.html">@xlvane/compat</a><a href="errors.html">Errors and warnings</a><a href="inspect-json.html" aria-current="page">inspect() report</a><a href="cli-json.html">Command line JSON</a><a href="exceljs-compat.html">exceljs compatibility</a><a href="agent-skill.html">Agent Skill</a></nav><article class="doc"><h1 id="inspect-json-schema-version-1"><a class="anchor" href="#inspect-json-schema-version-1" aria-hidden="true">#</a><code>inspect()</code> JSON schema, version 1</h1>
+<p><code>inspect(input, options?)</code> (and <code>inspectFile(path, options?)</code> from <code>xlvane/node</code>) returns plain JSON data describing a workbook. <code>JSON.stringify</code> of the result is lossless. The field <code>schemaVersion</code> changes only when a field is removed or changes meaning; new fields may be added within a version.</p>
+<h2 id="options"><a class="anchor" href="#options" aria-hidden="true">#</a>Options</h2>
+<div class="table"><table><thead><tr><th>Option</th><th>Default</th><th>Meaning</th></tr></thead><tbody><tr><td><code>limits</code></td><td>see <code>DEFAULT_READ_LIMITS</code></td><td>resource limits used while reading the file</td></tr><tr><td><code>maxColumns</code></td><td>200</td><td>maximum number of columns described per sheet; <code>columnsTruncated</code> says whether more exist</td></tr><tr><td><code>headerScanRows</code></td><td>20</td><td>number of leading non-empty rows searched for a header row</td></tr><tr><td><code>formulaSamples</code></td><td>10</td><td>maximum number of example formulas per sheet</td></tr></tbody></table></div>
+<h2 id="workbook"><a class="anchor" href="#workbook" aria-hidden="true">#</a>Workbook</h2>
+<div class="table"><table><thead><tr><th>Field</th><th>Type</th><th>Meaning</th></tr></thead><tbody><tr><td><code>schemaVersion</code></td><td><code>1</code></td><td>version of this schema</td></tr><tr><td><code>format</code></td><td><code>&quot;xlsx&quot; | &quot;xlsm&quot; | &quot;xltx&quot; | &quot;xltm&quot; | &quot;unknown&quot;</code></td><td>from the content type of the workbook part</td></tr><tr><td><code>conformance</code></td><td><code>&quot;transitional&quot; | &quot;strict&quot;</code></td><td>Office Open XML conformance class of the package</td></tr><tr><td><code>dateSystem</code></td><td><code>&quot;1900&quot; | &quot;1904&quot;</code></td><td>date system used for serial dates</td></tr><tr><td><code>hasMacros</code></td><td>boolean</td><td>the package contains a VBA project or Excel 4.0 macro sheets (never run)</td></tr><tr><td><code>externalLinkCount</code></td><td>number</td><td>links to other workbooks (never followed)</td></tr><tr><td><code>properties</code></td><td>object</td><td>document properties that are set (<code>title</code>, <code>creator</code>, <code>created</code>, …, from <code>docProps/core.xml</code>); all values are strings, dates as ISO 8601 in UTC (<code>&quot;2026-10-01T00:00:00.000Z&quot;</code>); <code>{}</code> when the file has none</td></tr><tr><td><code>definedNames</code></td><td><code>{ name, refersTo, sheet, hidden }[]</code></td><td>defined names in file order, at most 100; <code>refersTo</code> is the formula text without &quot;=&quot;, cut to 100 characters; <code>sheet</code> is <code>null</code> for a workbook-level name; built-in names such as <code>_xlnm._FilterDatabase</code> are included</td></tr><tr><td><code>definedNamesTruncated</code></td><td>boolean</td><td>the workbook has more than 100 defined names</td></tr><tr><td><code>sheetCount</code></td><td>number</td><td>number of sheets</td></tr><tr><td><code>sheets</code></td><td>array of sheet objects</td><td>in workbook order</td></tr><tr><td><code>warnings</code></td><td>array of warning objects</td><td>see below</td></tr></tbody></table></div>
+<h2 id="sheet"><a class="anchor" href="#sheet" aria-hidden="true">#</a>Sheet</h2>
+<div class="table"><table><thead><tr><th>Field</th><th>Type</th><th>Meaning</th></tr></thead><tbody><tr><td><code>name</code></td><td>string</td><td>sheet name</td></tr><tr><td><code>index</code></td><td>number</td><td>0-based position</td></tr><tr><td><code>sheetId</code></td><td>number or <code>null</code></td><td>the sheet&#39;s id in the file (<code>sheet@sheetId</code>), independent of its position; <code>null</code> when the file has none, an invalid one or a repeated one</td></tr><tr><td><code>kind</code></td><td><code>&quot;worksheet&quot; | &quot;chartsheet&quot; | &quot;dialogsheet&quot; | &quot;macrosheet&quot;</code></td><td>only worksheets have cells</td></tr><tr><td><code>state</code></td><td><code>&quot;visible&quot; | &quot;hidden&quot; | &quot;veryHidden&quot;</code></td><td>visibility</td></tr><tr><td><code>dimension</code></td><td>string or <code>null</code></td><td>range declared in the file, e.g. <code>&quot;A1:D20&quot;</code></td></tr><tr><td><code>usedRange</code></td><td>string or <code>null</code></td><td>smallest range containing every cell with a value or formula; <code>null</code> for an empty sheet</td></tr><tr><td><code>rowCount</code>, <code>columnCount</code></td><td>number</td><td>size of <code>usedRange</code></td></tr><tr><td><code>cellCount</code></td><td>number</td><td>cells with a value or formula</td></tr><tr><td><code>formulaCount</code></td><td>number</td><td>cells with a formula</td></tr><tr><td><code>mergedRanges</code></td><td>string[]</td><td>merged ranges, e.g. <code>[&quot;A1:D1&quot;]</code>; at most the first 100</td></tr><tr><td><code>mergedRangeCount</code></td><td>number</td><td>number of merged ranges on the sheet</td></tr><tr><td><code>mergedRangesTruncated</code></td><td>boolean</td><td><code>true</code> when <code>mergedRanges</code> lists only the first 100</td></tr><tr><td><code>headerRow</code></td><td><code>{ row, confidence }</code> or <code>null</code></td><td>detected header row (1-based) and <code>&quot;high&quot;</code> or <code>&quot;low&quot;</code> confidence</td></tr><tr><td><code>columns</code></td><td>array of column objects</td><td>one per column of <code>usedRange</code>, at most <code>maxColumns</code></td></tr><tr><td><code>columnsTruncated</code></td><td>boolean</td><td><code>usedRange</code> has more columns than were described</td></tr><tr><td><code>formulas</code></td><td><code>{ cell, formula }[]</code></td><td>up to <code>formulaSamples</code> examples; <code>formula</code> is the text without &quot;=&quot; or <code>null</code> for cells that reuse a shared formula</td></tr><tr><td><code>richTextCellCount</code></td><td>number</td><td>cells whose text has formatted runs (<code>Cell.richText</code>)</td></tr><tr><td><code>richTextCells</code></td><td>string[]</td><td>up to ten of those cells</td></tr><tr><td><code>styledColumns</code></td><td>string[]</td><td>columns with a default style (<code>col@style</code>, <code>ColumnInfo.style</code>), e.g. <code>[&quot;B&quot;, &quot;D:F&quot;]</code>; at most <code>maxColumns</code> entries</td></tr><tr><td><code>hyperlinkCount</code></td><td>number</td><td>hyperlinks of the sheet (<code>Sheet.hyperlinks</code>)</td></tr><tr><td><code>hyperlinks</code></td><td>object[]</td><td>up to ten of them: <code>ref</code>, <code>target</code> (external URL or path as stored, or <code>null</code>), <code>location</code> (place in the workbook, or <code>null</code>); targets are never opened</td></tr><tr><td><code>noteCount</code></td><td>number</td><td>notes (comments) of the sheet (<code>Sheet.notes</code>)</td></tr><tr><td><code>imageCount</code></td><td>number</td><td>pictures of the sheet&#39;s drawing (<code>Sheet.images</code>); charts and shapes are not counted</td></tr><tr><td><code>images</code></td><td>array</td><td>up to 10 pictures: <code>cell</code> of the top-left corner (<code>null</code> for an absolute position) and <code>format</code> (<code>png</code>, <code>jpeg</code>, <code>gif</code>, or <code>null</code> for other formats)</td></tr><tr><td><code>notes</code></td><td>string[]</td><td>up to ten cells that have a note</td></tr><tr><td><code>protected</code></td><td>boolean</td><td>the sheet is protected (<code>Sheet.protection.sheet</code>)</td></tr><tr><td><code>printArea</code></td><td>string[] | null</td><td>the print area (<code>Sheet.printArea</code>), at most ten ranges</td></tr><tr><td><code>pageBreakCount</code></td><td>number</td><td>manual page breaks, rows and columns together (<code>Sheet.pageBreaks</code>)</td></tr><tr><td><code>dataValidationCount</code></td><td>number</td><td>data validation rules (<code>Sheet.dataValidations</code>)</td></tr><tr><td><code>conditionalFormatCount</code></td><td>number</td><td>conditional formatting rules over all ranges (<code>Sheet.conditionalFormats</code>)</td></tr><tr><td><code>tables</code></td><td>array</td><td>tables of the sheet (<code>Sheet.tables</code>): <code>name</code> (the name used in formulas), <code>ref</code> (header and totals rows included) and <code>columns</code> (column names); at most 20 tables and 50 columns each</td></tr></tbody></table></div>
+<p><strong>Header detection.</strong> Among the first <code>headerScanRows</code> non-empty rows, the header row is the first one in which:</p>
+<ul><li>cells with a formula are left out (a total such as <code>=SUM(B3:B9)</code> may sit next to the column names);</li><li>every other cell is non-blank text or a year: a whole number from 1900 to 2100 (<code>Region | 2023 | 2024</code>). The years of the row must be consecutive, and in the next non-empty row at least one value below them must not be such a year, so that a data row with years (<code>Alice | 1985</code>) is not taken for a header;</li><li>at least one cell is text, and the cells cover at least half of the used width.</li></ul>
+<p>Repeated names are allowed; <code>readTable</code> gives the second one the key <code>name_2</code>, and so on. The confidence is <code>&quot;high&quot;</code> when the names are distinct and the next non-empty row contains a value that is not text (number, date, boolean or error), otherwise <code>&quot;low&quot;</code>. A year used as a column name is reported as text in <code>header</code> (<code>&quot;2023&quot;</code>). This is a heuristic; check <code>confidence</code> before relying on it, or give the header row yourself (<code>readTable(…, { header: 2 })</code>, <code>xlvane read --header 2</code>).</p>
+<h2 id="column"><a class="anchor" href="#column" aria-hidden="true">#</a>Column</h2>
+<div class="table"><table><thead><tr><th>Field</th><th>Type</th><th>Meaning</th></tr></thead><tbody><tr><td><code>index</code></td><td>number</td><td>1-based column number</td></tr><tr><td><code>letter</code></td><td>string</td><td>column letters, e.g. <code>&quot;C&quot;</code></td></tr><tr><td><code>header</code></td><td>string or <code>null</code></td><td>text of the header cell, <code>null</code> without a header row</td></tr><tr><td><code>dominantType</code></td><td><code>&quot;number&quot; | &quot;string&quot; | &quot;date&quot; | &quot;boolean&quot; | &quot;error&quot; | &quot;empty&quot;</code></td><td>most frequent non-empty type in the data rows (ties: number, string, date, boolean, error)</td></tr><tr><td><code>types</code></td><td><code>{ number, string, boolean, date, error, empty }</code></td><td>counts over the data rows: the rows below the header row (or all rows without one) down to the end of <code>usedRange</code></td></tr><tr><td><code>samples</code></td><td>array</td><td>up to three distinct example values from the data rows</td></tr></tbody></table></div>
+<p>Values in <code>samples</code> are JSON-safe: numbers, booleans, strings (cut to 100 characters) and dates as ISO 8601 strings <strong>without a time zone</strong>, as in CSV: the date alone at midnight (<code>&quot;2024-01-31&quot;</code>), otherwise date and time (<code>&quot;2024-01-31T13:45:00&quot;</code>, with <code>.sss</code> when there are milliseconds), because spreadsheet dates have no time zone. Error cells appear as their code, e.g. <code>&quot;#DIV/0!&quot;</code>.</p>
+<h2 id="warning"><a class="anchor" href="#warning" aria-hidden="true">#</a>Warning</h2>
+<div class="table"><table><thead><tr><th>Field</th><th>Type</th><th>Meaning</th></tr></thead><tbody><tr><td><code>code</code></td><td>string</td><td><code>XLV_W_*</code> code, see docs/errors.md</td></tr><tr><td><code>message</code></td><td>string</td><td>what was found and what xlvane did</td></tr><tr><td><code>location</code></td><td>object</td><td><code>sheet</code> and/or <code>part</code> where it applies</td></tr><tr><td><code>count</code></td><td>number</td><td>number of occurrences (warnings are aggregated per sheet)</td></tr><tr><td><code>cells</code></td><td>string[] (optional)</td><td>up to ten example cells</td></tr></tbody></table></div>
+<h2 id="example"><a class="anchor" href="#example" aria-hidden="true">#</a>Example</h2>
+<pre><code class="language-json">{
+  &quot;schemaVersion&quot;: 1,
+  &quot;format&quot;: &quot;xlsx&quot;,
+  &quot;conformance&quot;: &quot;transitional&quot;,
+  &quot;dateSystem&quot;: &quot;1900&quot;,
+  &quot;hasMacros&quot;: false,
+  &quot;externalLinkCount&quot;: 0,
+  &quot;properties&quot;: { &quot;title&quot;: &quot;Sales 2024&quot;, &quot;creator&quot;: &quot;Finance&quot; },
+  &quot;definedNames&quot;: [{ &quot;name&quot;: &quot;Total&quot;, &quot;refersTo&quot;: &quot;Sales!$C$3&quot;, &quot;sheet&quot;: null, &quot;hidden&quot;: false }],
+  &quot;definedNamesTruncated&quot;: false,
+  &quot;sheetCount&quot;: 1,
+  &quot;sheets&quot;: [
+    {
+      &quot;name&quot;: &quot;Sales&quot;,
+      &quot;index&quot;: 0,
+      &quot;sheetId&quot;: 1,
+      &quot;kind&quot;: &quot;worksheet&quot;,
+      &quot;state&quot;: &quot;visible&quot;,
+      &quot;dimension&quot;: &quot;A1:C3&quot;,
+      &quot;usedRange&quot;: &quot;A1:C3&quot;,
+      &quot;cellCount&quot;: 9,
+      &quot;formulaCount&quot;: 1,
+      &quot;mergedRanges&quot;: [],
+      &quot;mergedRangeCount&quot;: 0,
+      &quot;mergedRangesTruncated&quot;: false,
+      &quot;formulas&quot;: [{ &quot;cell&quot;: &quot;C3&quot;, &quot;formula&quot;: &quot;SUM(C2:C2)&quot; }],
+      &quot;richTextCellCount&quot;: 0,
+      &quot;richTextCells&quot;: [],
+      &quot;styledColumns&quot;: [],
+      &quot;hyperlinkCount&quot;: 0,
+      &quot;hyperlinks&quot;: [],
+      &quot;noteCount&quot;: 0,
+      &quot;imageCount&quot;: 0,
+      &quot;images&quot;: [],
+      &quot;notes&quot;: [],
+      &quot;protected&quot;: false,
+      &quot;printArea&quot;: null,
+      &quot;pageBreakCount&quot;: 0,
+      &quot;dataValidationCount&quot;: 0,
+      &quot;conditionalFormatCount&quot;: 0,
+      &quot;tables&quot;: [],
+      &quot;rowCount&quot;: 3,
+      &quot;columnCount&quot;: 3,
+      &quot;headerRow&quot;: { &quot;row&quot;: 1, &quot;confidence&quot;: &quot;high&quot; },
+      &quot;columns&quot;: [
+        { &quot;index&quot;: 1, &quot;letter&quot;: &quot;A&quot;, &quot;header&quot;: &quot;Date&quot;, &quot;dominantType&quot;: &quot;date&quot;, &quot;types&quot;: { &quot;number&quot;: 0, &quot;string&quot;: 0, &quot;boolean&quot;: 0, &quot;date&quot;: 2, &quot;error&quot;: 0, &quot;empty&quot;: 0 }, &quot;samples&quot;: [&quot;2024-01-31&quot;, &quot;2024-02-01&quot;] },
+        { &quot;index&quot;: 2, &quot;letter&quot;: &quot;B&quot;, &quot;header&quot;: &quot;Customer&quot;, &quot;dominantType&quot;: &quot;string&quot;, &quot;types&quot;: { &quot;number&quot;: 0, &quot;string&quot;: 1, &quot;boolean&quot;: 0, &quot;date&quot;: 0, &quot;error&quot;: 0, &quot;empty&quot;: 1 }, &quot;samples&quot;: [&quot;ACME&quot;] },
+        { &quot;index&quot;: 3, &quot;letter&quot;: &quot;C&quot;, &quot;header&quot;: &quot;Amount&quot;, &quot;dominantType&quot;: &quot;number&quot;, &quot;types&quot;: { &quot;number&quot;: 2, &quot;string&quot;: 0, &quot;boolean&quot;: 0, &quot;date&quot;: 0, &quot;error&quot;: 0, &quot;empty&quot;: 0 }, &quot;samples&quot;: [100.5] }
+      ],
+      &quot;columnsTruncated&quot;: false
+    }
+  ],
+  &quot;warnings&quot;: []
+}</code></pre><p class="source">Source: <a href="https://github.com/DevXord/xlvane/blob/v1.1.0/docs/inspect-json.md">docs/inspect-json.md</a> (version 1.1.0)</p></article>
+</main>
+</div>
+<footer class="site-footer">
+  <p>xlvane 1.1.0, MIT License. Pages built from the package published on npm. <a href="https://github.com/DevXord/xlvane">Source on GitHub</a> · <a href="https://github.com/DevXord/xlvane/blob/main/SECURITY.md">Reporting a vulnerability</a></p>
+</footer>
+</body>
+</html>

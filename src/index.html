@@ -1,0 +1,36 @@
+<section class="hero">
+  <h1>Read, inspect and write XLSX files</h1>
+  <p class="lead">xlvane is an MIT-licensed library for Excel workbooks that treats every input file as untrusted. ESM only, with one runtime dependency (<a href="https://github.com/101arrowz/fflate">fflate</a>). The core works with <code>Uint8Array</code> and has no Node.js dependencies; file helpers are in <code>xlvane/node</code>.</p>
+  <div class="install"><code>npm install xlvane</code></div>
+  <p class="actions"><a class="button primary" href="guide/index.html">Read the guide</a><a class="button" href="demo/index.html">Inspect a file in the browser</a><a class="button" href="https://github.com/DevXord/xlvane">GitHub</a></p>
+</section>
+
+<section>
+  <h2>Quick start</h2>
+  <pre><code class="language-ts">{{quickstart}}</code></pre>
+</section>
+
+<section>
+  <h2>What it does</h2>
+  <div class="cards">
+    <a class="card" href="guide/index.html#reading-a-workbook"><h3>Reading</h3><p>Values, dates, formulas with their cached results, styles, merged cells, hyperlinks, notes, tables, pictures, data validation and conditional formatting.</p></a>
+    <a class="card" href="guide/index.html#inspecting-a-workbook"><h3>inspect()</h3><p>Plain JSON about a workbook: sheets, used ranges, the detected header row, column types with examples, formulas, defined names and warnings.</p></a>
+    <a class="card" href="guide/index.html#writing-a-workbook"><h3>Writing</h3><p>Styles, column widths, frozen panes, filters, rich text, links, notes, images, tables, sheet rules and print settings. The output is deterministic, except the random salt of a protection password.</p></a>
+    <a class="card" href="guide/index.html#tasks-in-one-call"><h3>Tasks in one call</h3><p><code>readTable</code> with schema validation, <code>writeTable</code>, CSV and JSON in both directions, <code>editCells</code>, <code>appendRows</code>, <code>insertRows</code>, <code>deleteRows</code> and <code>diff</code>.</p></a>
+    <a class="card" href="guide/index.html#large-files-streaming"><h3>Streaming</h3><p>Read row by row and write rows pulled from an iterable, with Web Streams, so the worksheet cells are never all in memory.</p></a>
+    <a class="card" href="guide/index.html#untrusted-input-and-limits"><h3>Untrusted input</h3><p>ZIP and XML limits, no DTDs or external entities, file data never used as object keys, CSV formula-injection protection. Every error has an <code>XLV_E_*</code> code, a location and a hint.</p></a>
+    <a class="card" href="guide/index.html#command-line-in-5-minutes"><h3>Command line</h3><p><code>xlvane inspect</code>, <code>read</code>, <code>convert</code>, <code>create</code>, <code>edit</code>, <code>diff</code>, <code>validate</code> and <code>migrate</code>, with <code>--json</code> output that follows documented schemas.</p></a>
+    <a class="card" href="guide/compat.html"><h3>@xlvane/compat</h3><p>The exceljs 4.4.0 API on top of xlvane, installed under the name <code>exceljs</code>. An independent project, not affiliated with exceljs.</p></a>
+  </div>
+</section>
+
+<section>
+  <h2>Command line</h2>
+  <pre><code class="language-sh">{{cli}}</code></pre>
+</section>
+
+<section>
+  <h2>Tested environments</h2>
+  {{environments}}
+  <p>Version {{version}}. Changes are listed in the <a href="changelog.html">changelog</a>.</p>
+</section>

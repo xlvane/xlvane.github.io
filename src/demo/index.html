@@ -1,0 +1,37 @@
+<h1>Inspect an XLSX file in the browser</h1>
+<p>This page runs xlvane in your browser. The file is read with <code>File.arrayBuffer()</code> and is not uploaded anywhere: the page loads no code or data from other sites (its Content-Security-Policy allows only this site).</p>
+
+<label class="drop" id="drop">
+  <input type="file" id="file" accept=".xlsx,.xlsm,.xltx,.xltm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+  <strong>Choose an XLSX file</strong> or drop it here
+</label>
+<div class="row">
+  <button type="button" id="sample">Use a sample workbook</button>
+  <span class="status" id="status" role="status"></span>
+</div>
+
+<div id="error" class="notice error" hidden></div>
+
+<section id="result" hidden>
+  <h2>Sheets</h2>
+  <div class="table"><table id="sheets"><thead><tr><th>Name</th><th>State</th><th>Used range</th><th class="num">Rows</th><th class="num">Columns</th><th>Header row</th></tr></thead><tbody></tbody></table></div>
+
+  <div id="warnings" class="notice warn" hidden></div>
+
+  <div class="row">
+    <label for="sheet">Sheet</label>
+    <select id="sheet"></select>
+    <button type="button" id="csv">Download as CSV</button>
+  </div>
+
+  <h2>Columns</h2>
+  <div class="table"><table id="columns"><thead><tr><th>Column</th><th>Header</th><th>Type</th><th>Examples</th></tr></thead><tbody></tbody></table></div>
+
+  <h2>First rows</h2>
+  <p class="status" id="preview-note"></p>
+  <div class="table preview"><table id="preview"><thead></thead><tbody></tbody></table></div>
+
+  <h2>inspect() report</h2>
+  <p class="status">The JSON that <code>inspect(bytes)</code> returns (<a href="../guide/inspect-json.html">fields</a>).</p>
+  <details><summary>Show the JSON</summary><pre><code id="json"></code></pre></details>
+</section>

@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Agent Skill - xlvane</title>
+<meta name="description" content="Agent Skill of xlvane 1.1.0, an XLSX library.">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../style.css">
+
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="bar">
+    <a class="brand" href="../index.html"><span class="logo" aria-hidden="true"></span>xlvane</a>
+    <span class="version" title="Version on npm">1.1.0</span>
+    <nav class="main-nav" aria-label="Main"><a href="../guide/index.html" aria-current="page">Guide</a><a href="../demo/index.html">Demo</a><a href="../changelog.html">Changelog</a><a href="https://github.com/DevXord/xlvane">GitHub</a><a href="https://www.npmjs.com/package/xlvane">npm</a></nav>
+  </div>
+</header>
+<div class="layout with-toc">
+<nav class="toc" aria-label="On this page"><p class="toc-title">On this page</p><ul><li class="toc-2"><a href="#recommended-order-of-work">Recommended order of work</a></li><li class="toc-2"><a href="#library">Library</a></li><li class="toc-3"><a href="#inserting-and-deleting-rows">Inserting and deleting rows</a></li><li class="toc-2"><a href="#command-line">Command line</a></li><li class="toc-2"><a href="#errors">Errors</a></li><li class="toc-2"><a href="#things-to-know">Things to know</a></li></ul></nav>
+<main id="main">
+<nav class="guide-nav" aria-label="Guide"><a href="index.html">Guide</a><a href="compat.html">@xlvane/compat</a><a href="errors.html">Errors and warnings</a><a href="inspect-json.html">inspect() report</a><a href="cli-json.html">Command line JSON</a><a href="exceljs-compat.html">exceljs compatibility</a><a href="agent-skill.html" aria-current="page">Agent Skill</a></nav><article class="doc"><h1 id="xlvane-xlsx-files"><a class="anchor" href="#xlvane-xlsx-files" aria-hidden="true">#</a>xlvane: XLSX files</h1>
+<p>xlvane reads, writes and edits <code>.xlsx</code> files. It treats input files as untrusted (size and ZIP limits, no external entities, macros are never run, links are never followed). It does not calculate formulas: it reads the cached results stored in the file and writes the formula text you give.</p>
+<p>Two ways to use it, with the same behaviour:</p>
+<div class="table"><table><thead><tr><th>Way</th><th>When</th><th>Start</th></tr></thead><tbody><tr><td>Library <code>xlvane</code></td><td>You write JavaScript or TypeScript code</td><td><code>npm install xlvane</code></td></tr><tr><td>Command line <code>xlvane</code></td><td>You run shell commands</td><td><code>npx xlvane help</code></td></tr></tbody></table></div>
+<h2 id="recommended-order-of-work"><a class="anchor" href="#recommended-order-of-work" aria-hidden="true">#</a>Recommended order of work</h2>
+<ol><li><strong>Look before reading.</strong> <code>inspect</code> lists the sheets (including hidden ones), used ranges, the detected header row, column types with sample values, merged cells, formulas and warnings. Use it to pick the sheet and header row.</li><li><strong>Read rows as objects</strong> with <code>readTable</code>; pass a Standard Schema (Zod, Valibot, ArkType) to validate them. Problems come back as a list with the cell address.</li><li><strong>Write</strong> a new report with <code>writeTable</code>, or <strong>change</strong> an existing file with <code>editCells</code> / <code>appendRows</code>, which keep everything else in the file as it was.</li><li><strong>Check the result</strong> with <code>diff</code> before handing the file over.</li></ol>
+<h2 id="library"><a class="anchor" href="#library" aria-hidden="true">#</a>Library</h2>
+<pre><code class="language-ts">import { readFile, writeFile } from &#39;node:fs/promises&#39;;
+import { appendRows, diff, editCells, inspect, readTable, writeTable } from &#39;xlvane&#39;;
+
+const bytes = await readFile(&#39;report.xlsx&#39;);
+
+// 1. Structure: sheets, header rows, column types, warnings.
+const report = inspect(bytes);
+const sales = report.sheets.find((s) =&gt; s.name === &#39;Sales&#39;);
+console.log(sales?.headerRow, sales?.columns.map((c) =&gt; `${c.header}: ${c.dominantType}`));
+
+// 2. Rows as objects keyed by the header row; dates are Date objects.
+const table = readTable(bytes, { sheet: &#39;Sales&#39;, header: &#39;auto&#39; });
+console.log(table.rows.length, table.issues);
+
+// 3a. A new formatted report (bold header, frozen first row, autofilter, column widths).
+await writeFile(&#39;summary.xlsx&#39;, writeTable([{ region: &#39;North&#39;, total: 1250 }], { sheet: &#39;Summary&#39; }));
+
+// 3b. Change cells and append rows; styles, formulas and other sheets stay as they were.
+const edited = editCells(bytes, [{ sheet: &#39;Sales&#39;, cell: &#39;B2&#39;, value: 1300 }]);
+const appended = appendRows(edited.bytes, &#39;Sales&#39;, [{ Region: &#39;West&#39;, Revenue: 700 }]);
+await writeFile(&#39;updated.xlsx&#39;, appended.bytes);
+
+// 4. What changed.
+const changes = diff(bytes, appended.bytes);
+console.log(changes.summary);</code></pre>
+<p>With a schema:</p>
+<pre><code class="language-ts">import { readTable } from &#39;xlvane&#39;;
+import { z } from &#39;zod&#39;;
+
+declare const bytes: Uint8Array;
+const Row = z.object({ Region: z.string(), Revenue: z.number() });
+const { rows, issues } = readTable(bytes, { sheet: &#39;Sales&#39;, schema: Row });
+// rows: { Region: string; Revenue: number }[]; issues name the cell of every invalid value.
+console.log(rows.length, issues.map((i) =&gt; `${i.cell ?? &#39;?&#39;}: ${i.message}`));</code></pre>
+<p>Rich text, document properties, defined names and column styles:</p>
+<pre><code class="language-ts">import { createWorkbook, readWorkbook } from &#39;xlvane&#39;;
+
+declare const bytes: Uint8Array;
+const workbook = readWorkbook(bytes);
+console.log(workbook.properties.title, workbook.definedNames.map((n) =&gt; `${n.name}=${n.refersTo}`));
+console.log(workbook.sheets[0]?.cell(&#39;A1&#39;)?.richText); // runs with fonts; cell.value is the plain text
+
+const out = createWorkbook({ properties: { title: &#39;Report&#39; } });
+out.addSheet(&#39;Data&#39;).set(&#39;A1&#39;, { richText: [{ text: &#39;Net &#39;, font: { bold: true } }, { text: &#39;sales&#39; }] }).column(&#39;B&#39;, { style: { numFmt: &#39;#,##0.00&#39; } });
+out.defineName(&#39;Net&#39;, &#39;Data!$B$2&#39;);</code></pre>
+<p>Hyperlinks, notes (comments), tab colour and view:</p>
+<pre><code class="language-ts">import { createWorkbook, readWorkbook } from &#39;xlvane&#39;;
+
+declare const bytes: Uint8Array;
+const sheet = readWorkbook(bytes).getSheet(&#39;Sales&#39;);
+console.log(sheet.hyperlinks.map((l) =&gt; `${l.ref} → ${l.target ?? l.location ?? &#39;&#39;}`), sheet.notes.map((n) =&gt; `${n.ref}: ${n.text}`));
+
+const out = createWorkbook({ properties: { company: &#39;Example Ltd&#39; } });
+out.addSheet(&#39;Data&#39;).tabColor(&#39;FF0070C0&#39;).set(&#39;A1&#39;, &#39;Docs&#39;).link(&#39;A1&#39;, { url: &#39;https://example.com&#39; }).note(&#39;B2&#39;, { text: &#39;Check&#39;, author: &#39;Ann&#39;, box: { margins: { left: 2, top: 1, right: 2, bottom: 1 }, lockText: false } });</code></pre>
+<p>Link targets are never opened. Notes are written hidden and need no cell value. <code>editCells</code> keeps existing links and notes but cannot add new ones.</p>
+<p>Images (PNG, JPEG, GIF):</p>
+<pre><code class="language-ts">import { createWorkbook, readWorkbook } from &#39;xlvane&#39;;
+
+declare const bytes: Uint8Array;
+declare const png: Uint8Array;
+const pictures = readWorkbook(bytes).getSheet(&#39;Report&#39;).images; // anchor (EMU, with cells), image.format, image.bytes
+
+const out = createWorkbook();
+out.addSheet(&#39;Report&#39;).addImage(out.addImage(png), &#39;B2:D6&#39;, { description: &#39;Logo&#39; });</code></pre>
+<p>Charts and shapes are not read (<code>XLV_W_DRAWING_CONTENT_NOT_READ</code>); <code>editCells</code> keeps them unchanged.</p>
+<p>Printing and protection:</p>
+<pre><code class="language-ts">import { createWorkbook, readWorkbook } from &#39;xlvane&#39;;
+
+declare const bytes: Uint8Array;
+const sheet = readWorkbook(bytes).getSheet(&#39;Sales&#39;);
+console.log(sheet.pageSetup.orientation, sheet.printArea, sheet.protection?.sheet);
+
+const out = createWorkbook();
+out.addSheet(&#39;Report&#39;).pageSetup({ orientation: &#39;landscape&#39;, margins: { left: 0.5 } }).headerFooter({ oddFooter: &#39;&amp;RPage &amp;P of &amp;N&#39; }).printArea(&#39;A1:H40&#39;).protect({ sort: false });</code></pre>
+<p>Protection flags are <code>true</code> when the action is locked. <code>protect({ password: &#39;secret&#39; })</code> stores a SHA-512 verifier; it is not encryption. <code>verifyPassword(sheet.protection, &#39;secret&#39;)</code> checks a password.</p>
+<p>Data validation and conditional formatting:</p>
+<pre><code class="language-ts">import { createWorkbook, readWorkbook } from &#39;xlvane&#39;;
+
+declare const bytes: Uint8Array;
+const sheet = readWorkbook(bytes).getSheet(&#39;Orders&#39;);
+console.log(sheet.dataValidations.length, sheet.conditionalFormats.map((f) =&gt; f.sqref));
+
+const out = createWorkbook();
+out.addSheet(&#39;Orders&#39;)
+  .validate(&#39;A2:A500&#39;, { type: &#39;list&#39;, formula1: &#39;&quot;Open,Shipped,Paid&quot;&#39;, showErrorMessage: true, error: &#39;Pick a status.&#39; })
+  .conditionalFormat(&#39;C2:C500&#39;, [{ type: &#39;cellIs&#39;, operator: &#39;greaterThan&#39;, formulas: [1000], style: { fill: { pattern: &#39;solid&#39;, fgColor: &#39;FFC7CE&#39; } } }]);</code></pre>
+<p>Rules Office would reject throw <code>XLV_E_INVALID_OPTION</code> naming the property (for example <code>rules[0].operator</code>).</p>
+<p>Tables:</p>
+<pre><code class="language-ts">import { createWorkbook, readTable } from &#39;xlvane&#39;;
+
+declare const bytes: Uint8Array;
+const { rows } = readTable(bytes, { table: &#39;Sales&#39; }); // data rows of the table &quot;Sales&quot;, keyed by its header
+
+const out = createWorkbook();
+out.addSheet(&#39;Data&#39;).addTable({ name: &#39;Sales&#39;, ref: &#39;A1&#39;, totalsRow: true, columns: [{ name: &#39;Region&#39;, totalsRowLabel: &#39;Total&#39; }, { name: &#39;Revenue&#39;, totalsRowFunction: &#39;sum&#39; }], rows: [[&#39;North&#39;, 1200]] });</code></pre>
+<p><code>sheet.tables</code> lists the tables of a sheet. Table names have no spaces and are unique in the workbook; overlapping tables or merged cells throw <code>XLV_E_INVALID_TABLE</code>.</p>
+<h3 id="inserting-and-deleting-rows"><a class="anchor" href="#inserting-and-deleting-rows" aria-hidden="true">#</a>Inserting and deleting rows</h3>
+<pre><code class="language-ts">import { deleteRows, insertRows } from &#39;xlvane&#39;;
+
+declare const bytes: Uint8Array;
+const { bytes: wider } = insertRows(bytes, { sheet: &#39;Sales&#39;, at: 5, count: 2, style: &#39;above&#39; });
+const { bytes: shorter } = deleteRows(wider, { sheet: &#39;Sales&#39;, at: 5, count: 2 });</code></pre>
+<p>Formulas on every sheet, merged cells, links, notes, conditional formats (also extended data bars and icon sets, and thresholds that refer to cells), data validation and defined names follow the rows; references to deleted cells become <code>#REF!</code>. Tables and pictures move with their rows. Drawings with charts or shapes, sparklines and slicers, and a deletion that would cut a picture or remove a table&#39;s header row, totals row or all of its data rows, are refused with <code>XLV_E_NOT_SUPPORTED</code>.</p>
+<p><code>inspect()</code> reports the same items (<code>properties</code>, <code>definedNames</code>, and per sheet <code>richTextCellCount</code>, <code>styledColumns</code>, <code>hyperlinkCount</code> and <code>noteCount</code>). A column style is a default for cells added later; xlvane does not apply it to cells you set.</p>
+<p>In Node.js, <code>xlvane/node</code> adds <code>readWorkbookFile</code>, <code>inspectFile</code> and <code>writeWorkbookFile</code> (which never replaces an existing file unless <code>{ overwrite: true }</code> is passed). <code>toCSV</code>, <code>fromCSV</code>, <code>toJSON</code> and <code>fromJSON</code> convert tables. For very large files use <code>openWorkbookStream</code> and <code>writeWorkbookStream</code>.</p>
+<p>Code written for the <code>exceljs</code> API can run on xlvane through <code>@xlvane/compat</code> (<code>&quot;exceljs&quot;: &quot;npm:@xlvane/compat@^1&quot;</code> in package.json); unsupported exceljs features throw <code>XLV_E_NOT_SUPPORTED</code>.</p>
+<h2 id="command-line"><a class="anchor" href="#command-line" aria-hidden="true">#</a>Command line</h2>
+<pre><code class="language-sh">xlvane inspect report.xlsx                        # structure and warnings
+xlvane read report.xlsx --sheet Sales --limit 20  # a sheet as a table
+xlvane convert report.xlsx sales.csv              # XLSX to CSV/JSON, or CSV/JSON to XLSX
+xlvane create data.json report.xlsx               # a formatted report from JSON or CSV
+xlvane edit report.xlsx --set &quot;Sales!B2=1300&quot; -o updated.xlsx
+xlvane edit report.xlsx --sheet Sales --insert-rows 5 --count 2 -o wider.xlsx
+xlvane diff report.xlsx updated.xlsx              # exit code 1 when they differ
+xlvane validate report.xlsx --columns &quot;Region:string,Revenue:number&quot;</code></pre>
+<p>Add <code>--json</code> to any command for one JSON document with a documented schema (<code>docs/cli-json.md</code> in the package). Exit codes: 0 success, 1 a check found something, 2 usage error, 3 input or file error. Nothing is overwritten without <code>--force</code>; commands that write accept <code>--dry-run</code>.</p>
+<h2 id="errors"><a class="anchor" href="#errors" aria-hidden="true">#</a>Errors</h2>
+<p>Every error is an <code>XlvError</code> with a stable <code>code</code> (<code>XLV_E_*</code>), a <code>location</code> (sheet, cell, part), a <code>hint</code> that says what to do, and <code>details</code> (for example the list of available sheets). Read the hint and correct the call; the codes are described in <code>docs/errors.md</code> in the package. Warnings (<code>XLV_W_*</code>) never stop reading; check <code>workbook.warnings</code> or <code>inspect(...).warnings</code>.</p>
+<p>Common cases:</p>
+<ul><li><code>XLV_E_SHEET_NOT_FOUND</code>: <code>details.available</code> lists the sheets, and the hint names a close match when there is one.</li><li><code>XLV_E_HEADER_NOT_FOUND</code>: pass the header row number, or <code>header: false</code> to use column letters.</li><li><code>XLV_E_FILE_EXISTS</code>: choose another output path, or overwrite explicitly.</li><li><code>XLV_E_LIMIT_EXCEEDED</code>: the file is larger than a limit; raise the limit only for trusted files.</li></ul>
+<h2 id="things-to-know"><a class="anchor" href="#things-to-know" aria-hidden="true">#</a>Things to know</h2>
+<ul><li>Formulas are not calculated. After <code>editCells</code>, cached results that depend on edited cells are out of date until a spreadsheet program recalculates them (the file asks it to on opening).</li><li>Dates in spreadsheets have no time zone; xlvane returns them as <code>Date</code> objects whose UTC fields hold the spreadsheet&#39;s date and time. As text (<code>toCSV</code>, <code>toJSON</code>, <code>readTable({ dates: &#39;iso&#39; })</code>, <code>inspect</code>, <code>xlvane read --json</code>) they are ISO 8601 without a zone: <code>2024-01-31</code> or <code>2024-01-31T13:45:00</code>.</li><li>JSON has no date type: <code>fromJSON</code> keeps ISO date strings as text. Convert them to <code>Date</code> before <code>fromJSON</code>/<code>writeTable</code> if they should be dates. <code>fromCSV</code> does recognise ISO dates.</li><li><code>xlvane read --json</code> returns the first 50 rows; check <code>truncated</code> and use <code>--limit all</code> for every row. Warnings found while reading are in <code>result.warnings</code>.</li><li><code>.xls</code> (the old binary format) and encrypted files are not supported and are reported with an error code.</li></ul><p class="source">Source: <a href="https://github.com/DevXord/xlvane/blob/v1.1.0/skills/xlvane/SKILL.md">skills/xlvane/SKILL.md</a> (version 1.1.0)</p></article>
+</main>
+</div>
+<footer class="site-footer">
+  <p>xlvane 1.1.0, MIT License. Pages built from the package published on npm. <a href="https://github.com/DevXord/xlvane">Source on GitHub</a> · <a href="https://github.com/DevXord/xlvane/blob/main/SECURITY.md">Reporting a vulnerability</a></p>
+</footer>
+</body>
+</html>

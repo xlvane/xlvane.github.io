@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>@xlvane/compat - xlvane</title>
+<meta name="description" content="@xlvane/compat of xlvane 1.1.0, an XLSX library.">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../style.css">
+
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="bar">
+    <a class="brand" href="../index.html"><span class="logo" aria-hidden="true"></span>xlvane</a>
+    <span class="version" title="Version on npm">1.1.0</span>
+    <nav class="main-nav" aria-label="Main"><a href="../guide/index.html" aria-current="page">Guide</a><a href="../demo/index.html">Demo</a><a href="../changelog.html">Changelog</a><a href="https://github.com/DevXord/xlvane">GitHub</a><a href="https://www.npmjs.com/package/xlvane">npm</a></nav>
+  </div>
+</header>
+<div class="layout with-toc">
+<nav class="toc" aria-label="On this page"><p class="toc-title">On this page</p><ul><li class="toc-2"><a href="#installing">Installing</a></li><li class="toc-2"><a href="#example">Example</a></li><li class="toc-2"><a href="#requirements">Requirements</a></li><li class="toc-2"><a href="#differences-from-exceljs">Differences from exceljs</a></li><li class="toc-2"><a href="#links">Links</a></li><li class="toc-2"><a href="#license">License</a></li></ul></nav>
+<main id="main">
+<nav class="guide-nav" aria-label="Guide"><a href="index.html">Guide</a><a href="compat.html" aria-current="page">@xlvane/compat</a><a href="errors.html">Errors and warnings</a><a href="inspect-json.html">inspect() report</a><a href="cli-json.html">Command line JSON</a><a href="exceljs-compat.html">exceljs compatibility</a><a href="agent-skill.html">Agent Skill</a></nav><article class="doc"><h1 id="xlvanecompat"><a class="anchor" href="#xlvanecompat" aria-hidden="true">#</a>@xlvane/compat</h1>
+<p>The <a href="https://github.com/exceljs/exceljs">exceljs</a> 4.4.0 API, built on <a href="https://www.npmjs.com/package/xlvane">xlvane</a>, with the differences listed below and in <a href="exceljs-compat.html">docs/exceljs-compat.md</a>. Code written for exceljs keeps working after one change in <code>package.json</code>:</p>
+<pre><code class="language-json">&quot;dependencies&quot;: {
+  &quot;exceljs&quot;: &quot;npm:@xlvane/compat@^1&quot;
+}</code></pre>
+<p>npm installs the package under the name <code>exceljs</code> (an npm alias), so <code>import ExcelJS from &#39;exceljs&#39;</code> and <code>require(&#39;exceljs&#39;)</code> load <code>@xlvane/compat</code> and the code stays unchanged.</p>
+<h2 id="installing"><a class="anchor" href="#installing" aria-hidden="true">#</a>Installing</h2>
+<p>In a project that uses exceljs, either install the alias:</p>
+<pre><code class="language-sh">npm install exceljs@npm:@xlvane/compat@^1</code></pre>
+<p>or let the <code>xlvane</code> command line prepare the project:</p>
+<pre><code class="language-sh">npx xlvane migrate              # report: the change to package.json and places in the code to check
+npx xlvane migrate --force      # change package.json, then run npm install</code></pre>
+<p><code>xlvane migrate</code> changes only <code>package.json</code>, and only with <code>--force</code>. It scans the files that mention exceljs for API outside the supported subset; the matching is textual, so a finding is a place to look at.</p>
+<h2 id="example"><a class="anchor" href="#example" aria-hidden="true">#</a>Example</h2>
+<pre><code class="language-js">import ExcelJS from &#39;exceljs&#39;;
+
+const workbook = new ExcelJS.Workbook();
+const sheet = workbook.addWorksheet(&#39;Sales&#39;);
+sheet.columns = [
+  { header: &#39;Region&#39;, key: &#39;region&#39;, width: 15 },
+  { header: &#39;Revenue&#39;, key: &#39;revenue&#39;, width: 12 },
+];
+sheet.addRow({ region: &#39;North&#39;, revenue: 1200 });
+await workbook.xlsx.writeFile(&#39;sales.xlsx&#39;);</code></pre>
+<p>In CommonJS, <code>const ExcelJS = require(&#39;exceljs&#39;);</code> gives the same object; call <code>writeFile</code> inside an async function there.</p>
+<h2 id="requirements"><a class="anchor" href="#requirements" aria-hidden="true">#</a>Requirements</h2>
+<ul><li>Node.js 22.12 or later (<code>engines.node</code>). The package is an ES module; <code>require()</code> of ES modules works without a flag from Node.js 22.12. Named imports such as <code>import { Workbook } from &#39;exceljs&#39;</code> work too.</li><li>The same test bundle runs in Node.js 22, 24 and 26, Bun, Deno, Chromium and the Cloudflare Workers runtime (workerd). Methods that read or write files (<code>xlsx.readFile</code>, <code>xlsx.writeFile</code>, <code>csv.readFile</code>, <code>csv.writeFile</code>, the <code>filename</code> forms of the streaming classes and of <code>addImage</code>) work in Node.js, Bun and Deno; in browsers and Workers they throw <code>XLV_E_NOT_SUPPORTED</code>, and a bundler leaves the file helpers out.</li><li>Dependencies: <code>xlvane</code> only, which depends on <code>fflate</code> only.</li><li>TypeScript: the type names of exceljs&#39;s <code>index.d.ts</code> are exported (<code>ExcelJS.Worksheet</code>, <code>ExcelJS.Fill</code>, …) and work with <code>moduleResolution</code> <code>bundler</code> and <code>nodenext</code> and with <code>module: commonjs</code>. In a CommonJS project, TypeScript refuses <code>import ExcelJS = require(&#39;exceljs&#39;)</code> of an ES module under <code>module: node16</code> (TS1471); use <code>nodenext</code> or <code>commonjs</code>.</li></ul>
+<h2 id="differences-from-exceljs"><a class="anchor" href="#differences-from-exceljs" aria-hidden="true">#</a>Differences from exceljs</h2>
+<p>The full list, with the exceljs source of each behaviour, is in <a href="exceljs-compat.html">docs/exceljs-compat.md</a> (also in <code>node_modules/xlvane/docs/exceljs-compat.md</code> after installing). The ones most likely to matter:</p>
+<ul><li><strong>Not offered:</strong> row and column operations on a streamed worksheet (<code>insertRow(s)</code>, <code>spliceRows</code>, <code>duplicateRow</code>, <code>spliceColumns</code>; exceljs&#39;s streaming worksheet does not have them either) throw an <code>XlvError</code> with code <code>XLV_E_NOT_SUPPORTED</code> and the name of the method. Deep imports of exceljs internals (<code>exceljs/lib/...</code>) do not resolve; <code>exceljs/dist/es5</code> and the <code>exceljs/dist/exceljs*.js</code> files do. Nothing is dropped silently.</li><li><strong>CSV:</strong> text that starts with <code>=</code>, <code>+</code>, <code>-</code>, <code>@</code>, a tab, CR or LF is written with a leading <code>&#39;</code>, so spreadsheet applications do not run it as a formula. <code>formulaInjection: &quot;off&quot;</code> writes it unchanged, as exceljs does.</li><li><strong>Sheet ids:</strong> <code>worksheet.id</code> is written as <code>sheetId</code> and kept on loading, as in exceljs; an id outside 1 to 65534 is written as the lowest unused one, and the streaming <code>WorkbookReader</code> numbers worksheets 1, 2, 3… in file order.</li><li><strong>Views:</strong> only the first view of a worksheet is written; a frozen view always gets the cell right of and below the panes as <code>topLeftCell</code>.</li><li><strong>Notes:</strong> <code>protection.locked</code> and <code>lockText</code> read back as <code>&#39;True&#39;</code>/<code>&#39;False&#39;</code>, the values Excel writes.</li><li><strong>Module object:</strong> it is frozen, so adding or replacing its properties (monkey-patching) has no effect.</li><li><strong>Streaming writer speed:</strong> <code>stream.xlsx.WorkbookWriter</code> compresses in JavaScript (fflate) and took about twice as long as exceljs, which uses Node.js zlib (300 000 rows: 6.1 s against 2.8 s).</li><li><strong>Input files</strong> are treated as untrusted, as in xlvane: ZIP and XML limits, no DTDs or external entities. A file over a limit is rejected with an <code>XlvError</code> (<code>XLV_E_*</code> code, location and hint; <code>node_modules/xlvane/docs/errors.md</code>).</li></ul>
+<h2 id="links"><a class="anchor" href="#links" aria-hidden="true">#</a>Links</h2>
+<ul><li>Changes in each version: <a href="../changelog.html">CHANGELOG.md</a></li><li>Bugs and questions: <a href="https://github.com/DevXord/xlvane/issues">GitHub issues</a></li><li>Reporting a vulnerability: <a href="https://github.com/DevXord/xlvane/blob/main/SECURITY.md">SECURITY.md</a></li></ul>
+<h2 id="license"><a class="anchor" href="#license" aria-hidden="true">#</a>License</h2>
+<p>MIT. @xlvane/compat is an independent project. It is not affiliated with or endorsed by the exceljs project or its authors, and it contains no exceljs code; its API and type declarations follow exceljs 4.4.0, whose MIT license notice is included in LICENSE.</p><p class="source">Source: <a href="https://github.com/DevXord/xlvane/blob/v1.1.0/packages/compat/README.md">packages/compat/README.md</a> (version 1.1.0)</p></article>
+</main>
+</div>
+<footer class="site-footer">
+  <p>xlvane 1.1.0, MIT License. Pages built from the package published on npm. <a href="https://github.com/DevXord/xlvane">Source on GitHub</a> · <a href="https://github.com/DevXord/xlvane/blob/main/SECURITY.md">Reporting a vulnerability</a></p>
+</footer>
+</body>
+</html>
