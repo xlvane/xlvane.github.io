@@ -5,7 +5,7 @@ The website of [xlvane](https://github.com/DevXord/xlvane): a landing page, the 
 GitHub Pages publishes the `docs/` folder of the `main` branch. `docs/` is generated; edit `src/` and `scripts/` and build again.
 
 ```sh
-node scripts/build.mjs --version 1.2.0   # downloads xlvane, @xlvane/compat, @xlvane/mcp and fflate from npm (integrity checked) and the CHANGELOG of tag v1.2.0
+node scripts/build.mjs --version 1.2.1   # downloads xlvane, @xlvane/compat, @xlvane/mcp and fflate from npm (integrity checked) and the CHANGELOG of tag v1.2.1
 node scripts/check.mjs                   # every internal link and anchor exists, nothing is loaded from other origins
 node --test test/*.test.mjs              # tests of the Markdown converter
 ```
