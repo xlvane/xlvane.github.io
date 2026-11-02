@@ -139,7 +139,7 @@ export function markdownToHtml(source, { link = (u) => u } = {}) {
   const out = [];
   let i = 0;
 
-  const isBlockStart = (line) => /^(#{1,6} |```|\s*\|)/.test(line) || LIST_ITEM.test(line) || /^(---|\*\*\*)\s*$/.test(line);
+  const isBlockStart = (line) => /^(#{1,6} |`{3,}|\s*\|)/.test(line) || LIST_ITEM.test(line) || /^(---|\*\*\*)\s*$/.test(line);
 
   while (i < lines.length) {
     const line = lines[i];
@@ -147,17 +147,18 @@ export function markdownToHtml(source, { link = (u) => u } = {}) {
       i++;
       continue;
     }
-    const fence = /^```(\S*)\s*$/.exec(line);
+    const fence = /^(`{3,})([^`\s]*)\s*$/.exec(line);
     if (fence) {
       const body = [];
+      const close = new RegExp(`^\`{${String(fence[1].length)},}\\s*$`);
       i++;
-      while (i < lines.length && !/^```\s*$/.test(lines[i])) body.push(lines[i++]);
+      while (i < lines.length && !close.test(lines[i])) body.push(lines[i++]);
       i++;
-      const lang = fence[1] ? ` class="language-${escapeHtml(fence[1])}"` : '';
+      const lang = fence[2] ? ` class="language-${escapeHtml(fence[2])}"` : '';
       out.push(`<pre><code${lang}>${escapeHtml(body.join('\n'))}</code></pre>`);
       continue;
     }
-    const heading = /^(#{1,6}) +(.*?)\s*#*\s*$/.exec(line);
+    const heading = /^(#{1,6}) +(.*?)(?:\s+#+)?\s*$/.exec(line);
     if (heading) {
       const level = heading[1].length;
       const id = slug(plainText(heading[2]));
@@ -178,7 +179,8 @@ export function markdownToHtml(source, { link = (u) => u } = {}) {
       i += 2;
       const rows = [];
       while (i < lines.length && /^\s*\|/.test(lines[i])) rows.push(splitRow(lines[i++]));
-      const cell = (tag, c, k) => `<${tag}${align[k] ? ` style="text-align:${align[k]}"` : ''}>${inline(c, link)}</${tag}>`;
+      // A class, not a style attribute: the pages' CSP allows no inline styles.
+      const cell = (tag, c, k) => `<${tag}${align[k] ? ` class="align-${align[k]}"` : ''}>${inline(c, link)}</${tag}>`;
       out.push(
         `<div class="table"><table><thead><tr>${head.map((c, k) => cell('th', c, k)).join('')}</tr></thead><tbody>${rows
           .map((r) => `<tr>${head.map((_, k) => cell('td', r[k] ?? '', k)).join('')}</tr>`)

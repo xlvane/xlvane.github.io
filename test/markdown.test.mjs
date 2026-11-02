@@ -38,9 +38,17 @@ test('headings get GitHub anchors, unique per document', () => {
 
 test('tables, with escaped pipes and pipes inside code', () => {
   const { html } = markdownToHtml('| A | B |\n|---|---:|\n| `a \\| b` | 2 |\n| x \\| y | 3 |');
-  assert.match(html, /<th>A<\/th><th style="text-align:right">B<\/th>/);
-  assert.match(html, /<td><code>a \| b<\/code><\/td><td style="text-align:right">2<\/td>/);
+  assert.match(html, /<th>A<\/th><th class="align-right">B<\/th>/);
+  assert.match(html, /<td><code>a \| b<\/code><\/td><td class="align-right">2<\/td>/);
   assert.match(html, /<td>x \| y<\/td>/);
+});
+
+test('a heading may end in # (C#), and fences may be longer than three backticks', () => {
+  assert.match(markdownToHtml('## C#').html, /C#<\/h2>/);
+  assert.match(markdownToHtml('## Title ##').html, /Title<\/h2>/);
+  const { html } = markdownToHtml('````md\n```js\nx\n```\n````\nafter');
+  assert.match(html, /<pre><code class="language-md">```js\nx\n```<\/code><\/pre>/);
+  assert.match(html, /<p>after<\/p>/);
 });
 
 test('nested and numbered lists, fenced code and front matter', () => {

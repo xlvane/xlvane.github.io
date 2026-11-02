@@ -40,7 +40,10 @@ const PAGE_BY_REPO = new Map(PAGES.map((p) => [p.repo, p.out]));
 PAGE_BY_REPO.set('README.md', 'index.html');
 
 const [core, compat] = await Promise.all([fetchPackage('xlvane', version), fetchPackage('@xlvane/compat', version)]);
-const fflateVersion = JSON.parse(new TextDecoder().decode(core.files.get('package.json'))).dependencies.fflate.replace(/^\^/, '');
+// The newest fflate that xlvane's dependency range allows, as npm would install it (a caret range
+// such as ^0.8.3: same major, or same minor for 0.x).
+const fflateRange = JSON.parse(new TextDecoder().decode(core.files.get('package.json'))).dependencies.fflate;
+const fflateVersion = await newestInRange('fflate', fflateRange);
 const fflatePkg = await fetchPackage('fflate', fflateVersion);
 const changelogResponse = await fetch(`https://raw.githubusercontent.com/DevXord/xlvane/v${version}/CHANGELOG.md`);
 if (!changelogResponse.ok) throw new Error(`CHANGELOG.md of tag v${version}: HTTP ${String(changelogResponse.status)}`);
@@ -148,7 +151,8 @@ while (queue.length > 0) {
 for (const path of needed) {
   // The bare specifier "fflate" points to the copy beside it (no import map, so the CSP needs no inline script).
   const js = text(core.files, path).replace(/from "fflate"/g, 'from "../fflate/browser.js"');
-  if (/from "(?!\.\.?\/)/.test(js)) throw new Error(`${path} imports a module the browser cannot load.`);
+  // Static imports and re-exports at the start of a line, and dynamic import() of a string (TSDoc examples in comments are not code).
+  if (/^\s*(?:import|export)\b[^;'"]*?\bfrom\s*["'](?!\.\.?\/)|^\s*import\s*["'](?!\.\.?\/)|\bimport\s*\(\s*["'](?!\.\.?\/)/m.test(js)) throw new Error(`${path} imports a module the browser cannot load.`);
   write(`vendor/xlvane/${posix.basename(path)}`, js);
 }
 const fflateEntry = JSON.parse(text(fflatePkg.files, 'package.json')).exports['.'].import.default;
@@ -162,3 +166,19 @@ write(
 
 if (!existsSync(join(OUT, 'index.html'))) throw new Error('index.html was not written');
 console.log(`docs/: xlvane ${version}, @xlvane/compat ${version}, fflate ${fflateVersion}; ${String(PAGES.length + 2)} pages.`);
+
+/** The newest published version that a caret range (^X.Y.Z) allows; other ranges are refused. */
+async function newestInRange(name, range) {
+  const m = /^\^(\d+)\.(\d+)\.(\d+)$/.exec(range);
+  if (!m) throw new Error(`${name}: only caret ranges such as ^0.8.3 are handled, not "${range}".`);
+  const [major, minor, patch] = m.slice(1).map(Number);
+  const meta = await (await fetch(`https://registry.npmjs.org/${name}`)).json();
+  const ok = Object.keys(meta.versions)
+    .map((v) => /^(\d+)\.(\d+)\.(\d+)$/.exec(v))
+    .filter((v) => v !== null)
+    .map((v) => v.slice(1).map(Number))
+    .filter(([a, b, c]) => a === major && (major > 0 || b === minor) && (a > major || b > minor || (b === minor && c >= patch)))
+    .sort((x, y) => x[0] - y[0] || x[1] - y[1] || x[2] - y[2]);
+  if (ok.length === 0) throw new Error(`${name}: no version matches ${range}.`);
+  return ok[ok.length - 1].join('.');
+}

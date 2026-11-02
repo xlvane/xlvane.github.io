@@ -15,7 +15,8 @@ function files(dir) {
   });
 }
 
-const decode = (s) => s.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+// &amp; last, so that "&amp;lt;" becomes "&lt;" and not "<".
+const decode = (s) => s.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 const pages = files(OUT).filter((f) => f.endsWith('.html'));
 const ids = new Map(pages.map((p) => [p, new Set([...readFileSync(p, 'utf8').matchAll(/\sid="([^"]*)"/g)].map((m) => decode(m[1])))]));
 const problems = [];
@@ -37,7 +38,9 @@ for (const page of pages) {
       problems.push(`${where}: link with scheme ${url}`);
       continue;
     }
-    const [path, hash] = url.split('#');
+    const [rawPath, rawHash] = url.split('#');
+    const path = decodeURIComponent(rawPath);
+    const hash = rawHash === undefined ? undefined : decodeURIComponent(rawHash);
     const target = path === '' ? page : join(dirname(page), path);
     if (!existsSync(target)) {
       problems.push(`${where}: ${url} does not exist`);
