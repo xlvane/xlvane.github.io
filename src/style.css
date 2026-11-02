@@ -1,14 +1,14 @@
 /* xlvane.github.io: one stylesheet, light and dark, no external fonts. */
 :root {
   --bg: #ffffff;
-  --bg-soft: #f5f7f6;
-  --bg-code: #f2f4f3;
-  --fg: #1c2421;
-  --fg-muted: #56625d;
-  --line: #dde3e0;
-  --accent: #1f7a4d;
-  --accent-strong: #145c39;
-  --accent-soft: #e6f2ec;
+  --bg-soft: #f6f7fb;
+  --bg-code: #f2f3f8;
+  --fg: #1b1f2e;
+  --fg-muted: #555c72;
+  --line: #dfe2ec;
+  --accent: #3b4fd8;
+  --accent-strong: #2a3aa8;
+  --accent-soft: #eceffd;
   --warn: #8a5a00;
   --warn-soft: #fff4dc;
   --error: #a32020;
@@ -20,15 +20,15 @@
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #111614;
-    --bg-soft: #18201d;
-    --bg-code: #1b2421;
-    --fg: #e4ebe8;
-    --fg-muted: #9aa9a3;
-    --line: #2c3833;
-    --accent: #5cc796;
-    --accent-strong: #84dbb2;
-    --accent-soft: #17352a;
+    --bg: #12141c;
+    --bg-soft: #191c27;
+    --bg-code: #1c2030;
+    --fg: #e5e7f0;
+    --fg-muted: #9aa0b8;
+    --line: #2c3142;
+    --accent: #8b9cf7;
+    --accent-strong: #b0bcff;
+    --accent-soft: #1e2447;
     --warn: #f0c060;
     --warn-soft: #3a2f14;
     --error: #ff8f8f;
