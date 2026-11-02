@@ -11,7 +11,11 @@ const MAX_TEXT = 200;
 /** Sheets and columns per sheet kept in the JSON shown on the page. */
 const JSON_SHEETS = 20;
 const JSON_COLUMNS = 50;
+/** Largest rectangle (rows × columns from A1 to the end of the used range) exported as CSV. */
+const MAX_CSV_CELLS = 2_000_000;
 let current = null;
+/** Cells of the preview by "row:col", to read a formula only when the pointer is on its cell. */
+let previewCells = new Map();
 
 function el(tag, text, className) {
   const node = document.createElement(tag);
@@ -34,7 +38,7 @@ function setStatus(text) {
   $('status').textContent = cut(text, 400);
 }
 
-function showError(error) {
+function showError(error, keepResult = false) {
   const box = $('error');
   box.replaceChildren();
   const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : 'Error';
@@ -42,7 +46,7 @@ function showError(error) {
   // Hints about options (such as raising a limit) are for programs; the demo uses the defaults.
   if (error && typeof error === 'object' && 'hint' in error && error.hint && code !== 'XLV_E_LIMIT_EXCEEDED') box.append(el('p', `Hint: ${String(error.hint)}`));
   box.hidden = false;
-  $('result').hidden = true;
+  if (!keepResult) $('result').hidden = true;
 }
 
 /** Lets the browser paint the status line before the file is read on the main thread. */
@@ -98,7 +102,8 @@ function render() {
     option.value = String(s.index);
     select.append(option);
   }
-  const json = JSON.stringify(shortReport(report), null, 2);
+  // Long strings (headers, formulas, names) are cut while the JSON is built, not afterwards.
+  const json = JSON.stringify(shortReport(report), (_key, value) => (typeof value === 'string' ? cut(value, 500) : value), 2);
   $('json').textContent = json.length > 200_000 ? `${json.slice(0, 200_000)}\n… (cut at 200 000 characters)` : json;
   $('result').hidden = false;
   renderSheet();
@@ -125,6 +130,7 @@ function renderSheet() {
   }
   const sheet = current.workbook.sheets[index];
   const grid = new Map();
+  previewCells = grid;
   let minRow = Infinity;
   let minCol = Infinity;
   for (const cell of sheet.cells()) {
@@ -151,7 +157,8 @@ function renderSheet() {
     for (let c = minCol; c <= lastCol; c++) {
       const cell = grid.get(`${r}:${c}`);
       const td = el('td', cell ? show(cell.value) : '', cell && typeof cell.value === 'number' ? 'num' : undefined);
-      if (cell?.formula?.text) td.title = cut(`=${cell.formula.text}`, 500);
+      // The formula text is read on hover: a shared formula is expanded for each cell that reads it.
+      if (cell?.formula) td.dataset.cell = `${r}:${c}`;
       tr.append(td);
     }
     tbody.append(tr);
@@ -169,7 +176,20 @@ function downloadCsv() {
   if (!current) return;
   const index = Number($('sheet').value);
   const sheet = current.workbook.sheets[index];
-  if (!sheet) return;
+  const info = current.report.sheets.find((s) => s.index === index);
+  if (!sheet || !info) return;
+  // toCSV writes every position from A1 to the end of the used range.
+  const end = /([A-Z]+)(\d+)$/.exec(info.usedRange ?? '');
+  const area = end ? Number(end[2]) * end[1].split('').reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0) : 0;
+  if (area > MAX_CSV_CELLS) {
+    showError(new Error(`The sheet spans ${area.toLocaleString('en')} cells from A1 to the end of its used range; the demo exports at most ${MAX_CSV_CELLS.toLocaleString('en')}.`), true);
+    return;
+  }
+  if (current.workbook.sheets.filter((s) => s.name === sheet.name).length > 1) {
+    showError(new Error(`The workbook has more than one sheet named "${cut(sheet.name, 100)}", so the demo cannot export this one by name.`), true);
+    return;
+  }
+  $('error').hidden = true;
   try {
     const csv = toCSV(current.workbook, { sheet: sheet.name });
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
@@ -181,7 +201,7 @@ function downloadCsv() {
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   } catch (error) {
-    showError(error);
+    showError(error, true);
   }
 }
 
@@ -230,6 +250,13 @@ async function readFile(file) {
 $('file').addEventListener('change', (e) => void readFile(e.target.files?.[0]));
 $('sample').addEventListener('click', sample);
 $('sheet').addEventListener('change', renderSheet);
+$('preview').addEventListener('mouseover', (e) => {
+  const td = e.target instanceof Element ? e.target.closest('td[data-cell]') : null;
+  if (!td || td.title) return;
+  const cell = previewCells.get(td.dataset.cell);
+  const text = cell?.formula?.text;
+  if (text) td.title = cut(`=${text}`, 500);
+});
 $('csv').addEventListener('click', downloadCsv);
 const drop = $('drop');
 drop.addEventListener('dragover', (e) => {

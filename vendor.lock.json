@@ -1,0 +1,11 @@
+{
+  "xlvane": {
+    "1.1.0": "sha512-H+IFgQk/TjV3ff4kSY5a3Tosx1dQnwE1bi0IHmBLMAQiMFJChF4bsD/dfp3lxsrTE3dKW3G1s+7udVtjYGgLyA=="
+  },
+  "@xlvane/compat": {
+    "1.1.0": "sha512-fDI7TQ05P1G/PYQ8qj23+KuELFRw0snf6AVMH5imniFBPxdwCbhWoSYgutURxFT05lUAQi1El5mPZSuVEGXZdA=="
+  },
+  "fflate": {
+    "0.8.3": "sha512-tbZNuJrLwGUp3zshBtdy4W+ORxZuIh8a5ilyIEQDC5rY1f3U20JMry0Ll3WBzU58EZKsEuJFXhb5gwv8CsPvgA=="
+  }
+}

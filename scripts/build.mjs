@@ -20,6 +20,21 @@ const arg = (name) => {
   return i === -1 ? undefined : process.argv[i + 1];
 };
 const version = arg('version');
+const accept = process.argv.includes('--accept');
+const LOCK = join(ROOT, 'vendor.lock.json');
+const lock = existsSync(LOCK) ? JSON.parse(readFileSync(LOCK, 'utf8')) : {};
+/**
+ * Every package version and its sha512 must be in vendor.lock.json, so that a new or changed
+ * package (for example a malicious fflate release within xlvane's range) never reaches the site
+ * without a deliberate `--accept` after checking it (for xlvane: its npm provenance).
+ */
+function locked(name, ver, integrity) {
+  const known = lock[name]?.[ver];
+  if (known === integrity) return;
+  if (known !== undefined) throw new Error(`${name}@${ver}: the registry now gives ${integrity}, vendor.lock.json has ${known}. Do not accept this without finding out why.`);
+  if (!accept) throw new Error(`${name}@${ver} (${integrity}) is not in vendor.lock.json. Check it, then run again with --accept to add it.`);
+  lock[name] = { ...(lock[name] ?? {}), [ver]: integrity };
+}
 if (!version || !/^\d+\.\d+\.\d+$/.test(version)) {
   console.error('usage: node scripts/build.mjs --version X.Y.Z');
   process.exit(2);
@@ -45,6 +60,10 @@ const [core, compat] = await Promise.all([fetchPackage('xlvane', version), fetch
 const fflateRange = JSON.parse(new TextDecoder().decode(core.files.get('package.json'))).dependencies.fflate;
 const fflateVersion = await newestInRange('fflate', fflateRange);
 const fflatePkg = await fetchPackage('fflate', fflateVersion);
+locked('xlvane', version, core.integrity);
+locked('@xlvane/compat', version, compat.integrity);
+locked('fflate', fflateVersion, fflatePkg.integrity);
+writeFileSync(LOCK, `${JSON.stringify(lock, null, 2)}\n`);
 const changelogResponse = await fetch(`https://raw.githubusercontent.com/DevXord/xlvane/v${version}/CHANGELOG.md`);
 if (!changelogResponse.ok) throw new Error(`CHANGELOG.md of tag v${version}: HTTP ${String(changelogResponse.status)}`);
 const changelog = await changelogResponse.text();
