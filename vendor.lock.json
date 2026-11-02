@@ -20,5 +20,8 @@
     "1.2.0": "sha512-RabPFVSHyR5cQjLlRR4kj7HL0oWRB6KPRanmV5TDmBrWdPIVh6IHBnR88BeUb8SrAyppVyPr4zLySDviHZY2yg==",
     "1.2.1": "sha512-aTgqJo18vtRsw5PskWjR+x4v/ISHTJdz9RuBklLEBDeEuCFY7Aj0UYKbr/Zo5XdbICBwlHkQ2n9MNMRvvI+mxA==",
     "1.2.2": "sha512-yQv7Yb7L2o0e0Vec/FR7o+tfygMZyu+Fci2tsz8VaI0EZHDpkr7SD/LMHcsOUwpp/R6GYSveAn4PwUdu/FCa6w=="
+  },
+  "CHANGELOG.md": {
+    "1.2.2": "sha512-KlzbrNB1SHhVvnxqbctGSCaSb8l5uz1Kn4Sm59AqCDEIwYzyaxzSfFORn3LD46SxI2TH0tQC0RvCcEpCB3BpmA=="
   }
 }

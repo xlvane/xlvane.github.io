@@ -4,6 +4,7 @@
 // The documentation pages are the Markdown files of the xlvane, @xlvane/compat and @xlvane/mcp packages, so the
 // site shows exactly the documentation of that version. The demo uses the package's own browser
 // code (dist/) and fflate's browser build, copied into docs/vendor/.
+import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -21,19 +22,31 @@ const arg = (name) => {
 };
 const version = arg('version');
 const accept = process.argv.includes('--accept');
+/** `--accept-dependency name@version` (repeatable): a dependency version accepted by name, never by --accept. */
+const acceptedDependencies = new Set(process.argv.flatMap((a, i) => (process.argv[i - 1] === '--accept-dependency' ? [a] : [])));
+/** What --accept covers: the xlvane packages, whose provenance is checked, and the changelog of the release tag. */
+const OWN = new Set(['xlvane', '@xlvane/compat', '@xlvane/mcp', 'CHANGELOG.md']);
 const LOCK = join(ROOT, 'vendor.lock.json');
 const lock = existsSync(LOCK) ? JSON.parse(readFileSync(LOCK, 'utf8')) : {};
 /**
- * Every package version and its sha512 must be in vendor.lock.json, so that a new or changed
- * package (for example a malicious fflate release within xlvane's range) never reaches the site
- * without a deliberate `--accept` after checking it (for xlvane: its npm provenance).
+ * Every package version (and the changelog of each tag) and its sha512 must be in
+ * vendor.lock.json, so that a new or changed file never reaches the site without a deliberate
+ * acceptance after checking it. `--accept` covers only the xlvane packages (check their npm
+ * provenance) and the changelog; a dependency such as fflate is accepted by name and version with
+ * `--accept-dependency fflate@X.Y.Z`, so a new release within xlvane's range is never taken in
+ * along with a new xlvane version.
  */
 function locked(name, ver, integrity) {
   const known = lock[name]?.[ver];
   if (known === integrity) return;
-  if (known !== undefined) throw new Error(`${name}@${ver}: the registry now gives ${integrity}, vendor.lock.json has ${known}. Do not accept this without finding out why.`);
-  if (!accept) throw new Error(`${name}@${ver} (${integrity}) is not in vendor.lock.json. Check it, then run again with --accept to add it.`);
+  if (known !== undefined) throw new Error(`${name}@${ver}: the source now gives ${integrity}, vendor.lock.json has ${known}. Do not accept this without finding out why.`);
+  const allowed = OWN.has(name) ? accept : acceptedDependencies.has(`${name}@${ver}`);
+  if (!allowed) {
+    const how = OWN.has(name) ? '--accept' : `--accept-dependency ${name}@${ver}`;
+    throw new Error(`${name}@${ver} (${integrity}) is not in vendor.lock.json. Check it, then run again with ${how} to add it.`);
+  }
   lock[name] = { ...(lock[name] ?? {}), [ver]: integrity };
+  console.log(`added to vendor.lock.json: ${name}@${ver} ${integrity}`);
 }
 if (!version || !/^\d+\.\d+\.\d+$/.test(version)) {
   console.error('usage: node scripts/build.mjs --version X.Y.Z');
@@ -65,10 +78,12 @@ locked('xlvane', version, core.integrity);
 locked('@xlvane/compat', version, compat.integrity);
 locked('@xlvane/mcp', version, mcp.integrity);
 locked('fflate', fflateVersion, fflatePkg.integrity);
-writeFileSync(LOCK, `${JSON.stringify(lock, null, 2)}\n`);
 const changelogResponse = await fetch(`https://raw.githubusercontent.com/DevXord/xlvane/v${version}/CHANGELOG.md`);
 if (!changelogResponse.ok) throw new Error(`CHANGELOG.md of tag v${version}: HTTP ${String(changelogResponse.status)}`);
 const changelog = await changelogResponse.text();
+// The tag could be moved, so its changelog is locked like a package.
+locked('CHANGELOG.md', version, `sha512-${createHash('sha512').update(changelog, 'utf8').digest('base64')}`);
+writeFileSync(LOCK, `${JSON.stringify(lock, null, 2)}\n`);
 
 const text = (files, path) => {
   const data = files.get(path);
