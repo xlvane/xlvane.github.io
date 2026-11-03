@@ -13,15 +13,17 @@
 <section>
   <h2>What it does</h2>
   <div class="cards">
-    <a class="card" href="guide/index.html#reading-a-workbook"><h3>Reading</h3><p>Values, dates, formulas with their cached results, styles, merged cells, hyperlinks, notes, tables, pictures, data validation and conditional formatting.</p></a>
+    <a class="card" href="guide/index.html#reading-a-workbook"><h3>Reading</h3><p>Values, dates, formulas with their cached results, styles, merged cells, hyperlinks, notes, tables, pictures, charts, data validation and conditional formatting.</p></a>
     <a class="card" href="guide/index.html#inspecting-a-workbook"><h3>inspect()</h3><p>Plain JSON about a workbook: sheets, used ranges, the detected header row, column types with examples, formulas, defined names and warnings.</p></a>
-    <a class="card" href="guide/index.html#writing-a-workbook"><h3>Writing</h3><p>Styles, column widths, frozen panes, filters, rich text, links, notes, images, tables, sheet rules and print settings. The output is deterministic, except the random salt of a protection password.</p></a>
+    <a class="card" href="guide/index.html#writing-a-workbook"><h3>Writing</h3><p>Styles, column widths, frozen panes, filters, rich text, links, notes, images, charts (column, bar, line, pie, scatter and area), tables, sheet rules and print settings. The output is deterministic, except the random salt of a protection password.</p></a>
     <a class="card" href="guide/index.html#tasks-in-one-call"><h3>Tasks in one call</h3><p><code>readTable</code> with schema validation, <code>writeTable</code>, CSV and JSON in both directions, <code>editCells</code>, <code>appendRows</code>, <code>insertRows</code>, <code>deleteRows</code> and <code>diff</code>.</p></a>
     <a class="card" href="guide/index.html#large-files-streaming"><h3>Streaming</h3><p>Read row by row and write rows pulled from an iterable, with Web Streams, so the worksheet cells are never all in memory.</p></a>
     <a class="card" href="guide/index.html#untrusted-input-and-limits"><h3>Untrusted input</h3><p>ZIP and XML limits, no DTDs or external entities, file data never used as object keys, CSV formula-injection protection. Every error has an <code>XLV_E_*</code> code, a location and a hint.</p></a>
     <a class="card" href="guide/index.html#command-line-in-5-minutes"><h3>Command line</h3><p><code>xlvane inspect</code>, <code>read</code>, <code>convert</code>, <code>create</code>, <code>edit</code>, <code>diff</code>, <code>validate</code>, <code>migrate</code> and <code>mcp</code>, with <code>--json</code> output that follows documented schemas.</p></a>
     <a class="card" href="guide/mcp.html"><h3>MCP server</h3><p><code>@xlvane/mcp</code>: tools for MCP clients to inspect, read, compare and validate workbooks, and with <code>--allow-write</code> to write, edit and convert them, only inside the directories given at start.</p></a>
-    <a class="card" href="guide/compat.html"><h3>@xlvane/compat</h3><p>The exceljs 4.4.0 API on top of xlvane, installed under the name <code>exceljs</code>. An independent project, not affiliated with exceljs.</p></a>
+    <a class="card" href="guide/compat.html"><h3>@xlvane/compat</h3><p>The commonly used part of the exceljs 4.4.0 API on top of xlvane, installed under the name <code>exceljs</code>; the differences are listed in the compatibility guide. An independent project, not affiliated with exceljs.</p></a>
+    <a class="card" href="guide/migrate-from-exceljs.html"><h3>Moving from exceljs</h3><p>Step by step from exceljs to <code>@xlvane/compat</code>: what <code>xlvane migrate</code> changes, how to check the result and how to roll back.</p></a>
+    <a class="card" href="guide/xlsx-cves.html"><h3>CVEs of the xlsx package</h3><p>The two advisories of the <code>xlsx</code> (SheetJS) package on npm, the fixed SheetJS versions outside npm, and the equivalent xlvane calls.</p></a>
   </div>
 </section>
 

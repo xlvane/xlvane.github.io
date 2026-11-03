@@ -62,6 +62,8 @@ const PAGES = [
   { repo: 'docs/inspect-json.md', pkg: 'xlvane', file: 'docs/inspect-json.md', out: 'guide/inspect-json.html', title: 'inspect() report' },
   { repo: 'docs/cli-json.md', pkg: 'xlvane', file: 'docs/cli-json.md', out: 'guide/cli-json.html', title: 'Command line JSON' },
   { repo: 'docs/exceljs-compat.md', pkg: 'xlvane', file: 'docs/exceljs-compat.md', out: 'guide/exceljs-compat.html', title: 'exceljs compatibility' },
+  { repo: 'docs/migrate-from-exceljs.md', pkg: 'xlvane', file: 'docs/migrate-from-exceljs.md', out: 'guide/migrate-from-exceljs.html', title: 'Moving from exceljs' },
+  { repo: 'docs/xlsx-cves.md', pkg: 'xlvane', file: 'docs/xlsx-cves.md', out: 'guide/xlsx-cves.html', title: 'CVEs of the xlsx package' },
   { repo: 'skills/xlvane/SKILL.md', pkg: 'xlvane', file: 'skills/xlvane/SKILL.md', out: 'guide/agent-skill.html', title: 'Agent Skill' },
   { repo: 'CHANGELOG.md', pkg: null, file: 'CHANGELOG.md', out: 'changelog.html', title: 'Changelog' },
 ];
