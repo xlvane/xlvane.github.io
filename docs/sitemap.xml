@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://xlvane.github.io/</loc></url>
+  <url><loc>https://xlvane.github.io/guide/</loc></url>
+  <url><loc>https://xlvane.github.io/guide/compat.html</loc></url>
+  <url><loc>https://xlvane.github.io/guide/mcp.html</loc></url>
+  <url><loc>https://xlvane.github.io/guide/errors.html</loc></url>
+  <url><loc>https://xlvane.github.io/guide/inspect-json.html</loc></url>
+  <url><loc>https://xlvane.github.io/guide/cli-json.html</loc></url>
+  <url><loc>https://xlvane.github.io/guide/exceljs-compat.html</loc></url>
+  <url><loc>https://xlvane.github.io/guide/migrate-from-exceljs.html</loc></url>
+  <url><loc>https://xlvane.github.io/guide/xlsx-cves.html</loc></url>
+  <url><loc>https://xlvane.github.io/guide/agent-skill.html</loc></url>
+  <url><loc>https://xlvane.github.io/changelog.html</loc></url>
+  <url><loc>https://xlvane.github.io/demo/</loc></url>
+</urlset>

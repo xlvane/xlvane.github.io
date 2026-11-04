@@ -8,7 +8,7 @@ import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { page } from './lib/layout.mjs';
+import { canonicalUrl, page } from './lib/layout.mjs';
 import { escapeHtml, markdownToHtml } from './lib/markdown.mjs';
 import { fetchPackage } from './lib/npm.mjs';
 
@@ -139,6 +139,7 @@ for (const p of PAGES) {
     p.out,
     page({
       title: `${p.title} - xlvane`,
+      path: p.out,
       description: `${p.title} of xlvane ${version}, an XLSX library.`,
       root,
       active: p.out.startsWith('guide/') ? 'guide' : 'changelog',
@@ -174,10 +175,10 @@ const landing = fill(readFileSync(join(ROOT, 'src/index.html'), 'utf8'), {
   cli: escapeHtml(firstCode(section('Command line in 5 minutes'))),
   environments: markdownToHtml(firstParagraph(section('Tested environments')), { link: linker('packages/xlvane/README.md', 'index.html') }).html,
 });
-write('index.html', page({ title: 'xlvane - read, inspect and write XLSX files', description: 'xlvane reads, inspects and writes XLSX files and treats input files as untrusted. MIT license, one runtime dependency.', root: '', version, body: landing }));
+write('index.html', page({ title: 'xlvane - read, inspect and write XLSX files', path: 'index.html', description: 'xlvane reads, inspects and writes XLSX files and treats input files as untrusted. MIT license, one runtime dependency.', root: '', version, body: landing }));
 
 // Demo: the page, its script, and the browser code of xlvane and fflate.
-write('demo/index.html', page({ title: 'Demo - xlvane', description: 'Inspect an XLSX file in the browser with xlvane; the file does not leave the computer.', root: '../', active: 'demo', version, wide: true, scripts: ['demo.js'], body: readFileSync(join(ROOT, 'src/demo/index.html'), 'utf8') }));
+write('demo/index.html', page({ title: 'Demo - xlvane', path: 'demo/index.html', description: 'Inspect an XLSX file in the browser with xlvane; the file does not leave the computer.', root: '../', active: 'demo', version, wide: true, scripts: ['demo.js'], body: readFileSync(join(ROOT, 'src/demo/index.html'), 'utf8') }));
 cpSync(join(ROOT, 'src/demo/demo.js'), join(OUT, 'demo/demo.js'));
 const needed = new Set();
 const queue = ['dist/index.js'];
@@ -204,6 +205,12 @@ write(
 );
 
 if (!existsSync(join(OUT, 'index.html'))) throw new Error('index.html was not written');
+
+// For search engines: every page in a sitemap (without lastmod, so the same version gives the same
+// files), and a robots.txt that allows everything and names the sitemap.
+const sitePages = ['index.html', ...PAGES.map((p) => p.out), 'demo/index.html'];
+write('sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${sitePages.map((p) => `  <url><loc>${escapeHtml(canonicalUrl(p))}</loc></url>\n`).join('')}</urlset>\n`);
+write('robots.txt', `User-agent: *\nAllow: /\n\nSitemap: ${canonicalUrl('sitemap.xml')}\n`);
 console.log(`docs/: xlvane ${version}, @xlvane/compat ${version}, @xlvane/mcp ${version}, fflate ${fflateVersion}; ${String(PAGES.length + 2)} pages.`);
 
 /** The newest published version that a caret range (^X.Y.Z) allows; other ranges are refused. */

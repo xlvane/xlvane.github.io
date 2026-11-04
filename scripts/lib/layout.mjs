@@ -2,6 +2,18 @@
 // with navigation, optional table of contents, and footer.
 import { escapeHtml } from './markdown.mjs';
 
+/** The address the site is published at (GitHub Pages of the organization xlvane). */
+export const SITE = 'https://xlvane.github.io/';
+
+/**
+ * The canonical address of a page from its path in docs/: "index.html" is left out, so a folder has
+ * one address ("guide/index.html" is "https://xlvane.github.io/guide/").
+ */
+export function canonicalUrl(path) {
+  if (path.startsWith('/') || path.includes('..')) throw new Error(`not a path inside the site: ${path}`);
+  return SITE + path.replace(/(^|\/)index\.html$/, '$1');
+}
+
 /** Content-Security-Policy of every page: nothing is loaded from other origins. */
 export const CSP = "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'";
 
@@ -12,10 +24,11 @@ const NAV = [
 ];
 
 /**
- * A complete page. `root` is the relative path to the site root ("" or "../"); `active` marks the
+ * A complete page. `path` is its path in docs/ (for the canonical address); `root` is the relative path to the site root ("" or "../"); `active` marks the
  * navigation entry; `toc` is a list of { level, text, id } shown beside the content.
  */
-export function page({ title, description, root, active = '', body, toc = [], version, scripts = [], wide = false }) {
+export function page({ title, description, path, root, active = '', body, toc = [], version, scripts = [], wide = false }) {
+  const url = canonicalUrl(path);
   const nav = NAV.map(([href, label, key]) => `<a href="${root}${href}"${key === active ? ' aria-current="page"' : ''}>${label}</a>`).join('');
   const contents =
     toc.length > 0
@@ -31,6 +44,12 @@ export function page({ title, description, root, active = '', body, toc = [], ve
 <meta http-equiv="Content-Security-Policy" content="${CSP}">
 <title>${escapeHtml(title)}</title>
 <meta name="description" content="${escapeHtml(description)}">
+<link rel="canonical" href="${escapeHtml(url)}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="xlvane">
+<meta property="og:title" content="${escapeHtml(title)}">
+<meta property="og:description" content="${escapeHtml(description)}">
+<meta property="og:url" content="${escapeHtml(url)}">
 <link rel="icon" href="${root}favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="${root}style.css">
 ${scripts.map((s) => `<script type="module" src="${s}"></script>`).join('\n')}

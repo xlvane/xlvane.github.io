@@ -1,10 +1,11 @@
 // Checks the built site in docs/: every relative link and source points to a file that exists
 // (and to an id that exists for #anchors), no page loads a script, style, image or font from another
-// origin, and every page carries the Content-Security-Policy. Exits with 1 and a list on failure.
+// origin, every page carries the Content-Security-Policy and its canonical address, and robots.txt
+// and sitemap.xml list the pages. Exits with 1 and a list on failure.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { CSP } from './lib/layout.mjs';
+import { CSP, SITE, canonicalUrl } from './lib/layout.mjs';
 
 const OUT = fileURLToPath(new URL('../docs/', import.meta.url));
 
@@ -26,6 +27,8 @@ for (const page of pages) {
   const where = relative(OUT, page);
   if (!html.includes(`content="${CSP}"`)) problems.push(`${where}: no Content-Security-Policy`);
   for (const m of html.matchAll(/<(script|link|img|iframe|source)\b[^>]*\s(?:src|href)="([^"]*)"/g)) {
+    // A canonical link is not loaded; it must be the page's own address on the site.
+    if (m[1] === 'link' && /\srel="canonical"/.test(m[0])) continue;
     if (/^(https?:)?\/\//i.test(m[2])) problems.push(`${where}: <${m[1]}> loads ${m[2]} from another origin`);
   }
   for (const m of html.matchAll(/\s(href|src)="([^"]*)"/g)) {
@@ -48,6 +51,20 @@ for (const page of pages) {
     }
     if (hash !== undefined && target.endsWith('.html') && !ids.get(target)?.has(hash)) problems.push(`${where}: ${url} has no id "${hash}"`);
   }
+}
+// robots.txt names the sitemap; the sitemap lists exactly the pages outside vendor/ and the
+// canonical address of each page is its address in the sitemap.
+const robots = existsSync(join(OUT, 'robots.txt')) ? readFileSync(join(OUT, 'robots.txt'), 'utf8') : '';
+if (!robots.includes(`Sitemap: ${SITE}sitemap.xml`)) problems.push('robots.txt: missing or without the sitemap');
+const sitemap = existsSync(join(OUT, 'sitemap.xml')) ? readFileSync(join(OUT, 'sitemap.xml'), 'utf8') : '';
+const listed = [...sitemap.matchAll(/<loc>([^<]*)<\/loc>/g)].map((m) => decode(m[1])).sort();
+const expected = pages.filter((p) => !relative(OUT, p).startsWith('vendor')).map((p) => canonicalUrl(relative(OUT, p).split(sep).join('/'))).sort();
+if (JSON.stringify(listed) !== JSON.stringify(expected)) problems.push(`sitemap.xml: lists ${JSON.stringify(listed)}, expected ${JSON.stringify(expected)}`);
+for (const page of pages) {
+  const where = relative(OUT, page).split(sep).join('/');
+  if (where.startsWith('vendor')) continue;
+  const canonical = /<link rel="canonical" href="([^"]*)">/.exec(readFileSync(page, 'utf8'))?.[1];
+  if (canonical === undefined || decode(canonical) !== canonicalUrl(where)) problems.push(`${where}: canonical ${String(canonical)} is not ${canonicalUrl(where)}`);
 }
 if (problems.length > 0) {
   console.error(problems.join('\n'));
