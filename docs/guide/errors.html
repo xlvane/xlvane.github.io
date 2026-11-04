@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>Errors and warnings - xlvane</title>
-<meta name="description" content="Errors and warnings of xlvane 1.3.1, an XLSX library.">
+<meta name="description" content="Errors and warnings of xlvane 1.3.2, an XLSX library.">
 <link rel="canonical" href="https://xlvane.github.io/guide/errors.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="xlvane">
 <meta property="og:title" content="Errors and warnings - xlvane">
-<meta property="og:description" content="Errors and warnings of xlvane 1.3.1, an XLSX library.">
+<meta property="og:description" content="Errors and warnings of xlvane 1.3.2, an XLSX library.">
 <meta property="og:url" content="https://xlvane.github.io/guide/errors.html">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="../style.css">
@@ -21,7 +21,7 @@
 <header class="site-header">
   <div class="bar">
     <a class="brand" href="../index.html"><span class="logo" aria-hidden="true"></span>xlvane</a>
-    <span class="version" title="Version on npm">1.3.1</span>
+    <span class="version" title="Version on npm">1.3.2</span>
     <nav class="main-nav" aria-label="Main"><a href="../guide/index.html" aria-current="page">Guide</a><a href="../demo/index.html">Demo</a><a href="../changelog.html">Changelog</a><a href="https://github.com/DevXord/xlvane">GitHub</a><a href="https://www.npmjs.com/package/xlvane">npm</a></nav>
   </div>
 </header>
@@ -172,11 +172,11 @@
 <h3 id="xlv_w_formulas_not_recalculated"><a class="anchor" href="#xlv_w_formulas_not_recalculated" aria-hidden="true">#</a>XLV_W_FORMULAS_NOT_RECALCULATED</h3>
 <p>Reported by <code>editCells</code> and <code>appendRows</code> when the workbook contains formulas. xlvane does not calculate formulas, so cached results that depend on edited cells may be out of date. The edited file asks spreadsheet applications to recalculate when it is opened (<code>calcPr fullCalcOnLoad</code>), and the calculation chain is removed when formulas themselves changed. Reading the file with xlvane still returns the old cached results. <strong>Fix:</strong> nothing, if the file will be opened in a spreadsheet application; otherwise do not rely on cached results of formulas that depend on edited cells.</p>
 <h3 id="xlv_w_invalid_cell_ref"><a class="anchor" href="#xlv_w_invalid_cell_ref" aria-hidden="true">#</a>XLV_W_INVALID_CELL_REF</h3>
-<p>A worksheet contains a row whose number is not a whole number from 1 to 1048576, a cell whose <code>r</code> reference is not a valid A1 reference inside the sheet grid (A1 to XFD1048576), or a cell without a reference that would lie past column XFD. Such rows and cells are skipped and the rest of the sheet is read, which is what LibreOffice does with them. A cell without a reference (or with an empty one) is placed after the last valid cell of its row. <code>count</code> is the number of skipped rows and cells. <strong>Fix:</strong> nothing, if the skipped cells are not needed; otherwise re-save the file in the application that made it. <code>editCells</code> and <code>appendRows</code> refuse such sheets (<code>XLV_E_INVALID_CELL_REF</code>).</p><p class="source">Source: <a href="https://github.com/DevXord/xlvane/blob/v1.3.1/docs/errors.md">docs/errors.md</a> (version 1.3.1)</p></article>
+<p>A worksheet contains a row whose number is not a whole number from 1 to 1048576, a cell whose <code>r</code> reference is not a valid A1 reference inside the sheet grid (A1 to XFD1048576), or a cell without a reference that would lie past column XFD. Such rows and cells are skipped and the rest of the sheet is read, which is what LibreOffice does with them. A cell without a reference (or with an empty one) is placed after the last valid cell of its row. <code>count</code> is the number of skipped rows and cells. <strong>Fix:</strong> nothing, if the skipped cells are not needed; otherwise re-save the file in the application that made it. <code>editCells</code> and <code>appendRows</code> refuse such sheets (<code>XLV_E_INVALID_CELL_REF</code>).</p><p class="source">Source: <a href="https://github.com/DevXord/xlvane/blob/v1.3.2/docs/errors.md">docs/errors.md</a> (version 1.3.2)</p></article>
 </main>
 </div>
 <footer class="site-footer">
-  <p>xlvane 1.3.1, MIT License. Pages built from the package published on npm. <a href="https://github.com/DevXord/xlvane">Source on GitHub</a> · <a href="https://github.com/DevXord/xlvane/blob/main/SECURITY.md">Reporting a vulnerability</a></p>
+  <p>xlvane 1.3.2, MIT License. Pages built from the package published on npm. <a href="https://github.com/DevXord/xlvane">Source on GitHub</a> · <a href="https://github.com/DevXord/xlvane/blob/main/SECURITY.md">Reporting a vulnerability</a></p>
 </footer>
 </body>
 </html>

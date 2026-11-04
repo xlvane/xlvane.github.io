@@ -6,7 +6,8 @@
     "1.2.1": "sha512-PcvO3wxNorAdx+vwx8YFoGCxy0dD6v+tajKa7OMdcYcqh/H9Q2svQyO1EUqslni+xivggmUWPHzVh+MuS60WIA==",
     "1.2.2": "sha512-DpedYRL51zJJfq0jxznvr5Qiw98OGznUPh/fagzSlkm6b+uQz9FdmPQUextuJ4Da6s2t/Fd+pY+QmPP8yzBxSg==",
     "1.3.0": "sha512-P6C2GSsydiVU2tm1e3JkznlJJ9m/VwtBIreUxaFVQbds8DmE1uEWnFNgRpRalaMHSVuG6iYOiqvxS8TRLX9B/A==",
-    "1.3.1": "sha512-BcsCbtLjABfTMNGLsMXEDiOk9+ekSeZr+uKkRtSG7kM6V4rsGSHwwdz2LlItg01ggwCbOhqDwT5dd3fBYP8TCA=="
+    "1.3.1": "sha512-BcsCbtLjABfTMNGLsMXEDiOk9+ekSeZr+uKkRtSG7kM6V4rsGSHwwdz2LlItg01ggwCbOhqDwT5dd3fBYP8TCA==",
+    "1.3.2": "sha512-QA+rpitEjkSJJdTnHOANu9vR1RNtA/dgiJUcHGu+9uUzukoKtkmBPHFKxGrID/Svz8Zmr6htmQ5XDc/gyG0LBg=="
   },
   "@xlvane/compat": {
     "1.1.0": "sha512-fDI7TQ05P1G/PYQ8qj23+KuELFRw0snf6AVMH5imniFBPxdwCbhWoSYgutURxFT05lUAQi1El5mPZSuVEGXZdA==",
@@ -15,7 +16,8 @@
     "1.2.1": "sha512-o5nMiVyHmzTjasKHKUp29T0spHTreYla4xdpoGVU9RaMckjROLHHj2J/3aqalMsuX8d4MF21ZIyT+AI/Mk60sw==",
     "1.2.2": "sha512-YmTJeCvBTug4pHmlpLNfcsjpzHCZDGHjO4kUPs3WivcKUbWLOPY/BKXbcbpO5x3zNlkkSoU0pY0SaXnFQWBR6A==",
     "1.3.0": "sha512-N6iT0CeGo/nhiefVByFEkoJcVLI46F6DpKwNCvODDuWxgdOf0MJY0DPGI02E6ZUSS065VagJjrVeb3rN2ofJtQ==",
-    "1.3.1": "sha512-EaTJe6QVZWmffr5g9BmupxlLKkqBsB8R7v7G5Klp5UTLDiRqI1QoBAGc1wEWEsal8Z4Gx2dWa45jSzD1OuVJ8w=="
+    "1.3.1": "sha512-EaTJe6QVZWmffr5g9BmupxlLKkqBsB8R7v7G5Klp5UTLDiRqI1QoBAGc1wEWEsal8Z4Gx2dWa45jSzD1OuVJ8w==",
+    "1.3.2": "sha512-JmURVpnIj3TRBF/SzNF94YA4tv6eU015kbFZf/rWSA7fIWv138CpdoVIl9cJU16YuKejYntO/OQ2e8qGUgcMcw=="
   },
   "fflate": {
     "0.8.3": "sha512-tbZNuJrLwGUp3zshBtdy4W+ORxZuIh8a5ilyIEQDC5rY1f3U20JMry0Ll3WBzU58EZKsEuJFXhb5gwv8CsPvgA=="
@@ -25,11 +27,13 @@
     "1.2.1": "sha512-aTgqJo18vtRsw5PskWjR+x4v/ISHTJdz9RuBklLEBDeEuCFY7Aj0UYKbr/Zo5XdbICBwlHkQ2n9MNMRvvI+mxA==",
     "1.2.2": "sha512-yQv7Yb7L2o0e0Vec/FR7o+tfygMZyu+Fci2tsz8VaI0EZHDpkr7SD/LMHcsOUwpp/R6GYSveAn4PwUdu/FCa6w==",
     "1.3.0": "sha512-F/gSgihdn85C41qZKESefyWOJaKKp2R2xdnv7m7b93Ea2WGcsmIIXbZjMOWwua3hYJnqdSndfAi0FMAGZguHMw==",
-    "1.3.1": "sha512-s+5l8x0CJRyQARGtDFb9Ytj1iWHf7HDlztEzilGr63sdeO2AXqL9sOxU5QvlM8xb2xXeCQawHmjLHHLDYtaW8Q=="
+    "1.3.1": "sha512-s+5l8x0CJRyQARGtDFb9Ytj1iWHf7HDlztEzilGr63sdeO2AXqL9sOxU5QvlM8xb2xXeCQawHmjLHHLDYtaW8Q==",
+    "1.3.2": "sha512-RfCJ4x25N4ghDxHV03Q+gg4RT0Inxo1UEaHLkbi2CRoDPtGBiZ8mvJcjO0PXcYJbD7vuR7ReVrj0U9iY5+cbfg=="
   },
   "CHANGELOG.md": {
     "1.2.2": "sha512-KlzbrNB1SHhVvnxqbctGSCaSb8l5uz1Kn4Sm59AqCDEIwYzyaxzSfFORn3LD46SxI2TH0tQC0RvCcEpCB3BpmA==",
     "1.3.0": "sha512-GDDgHGEU8n8d8pKkYnjCebAspcwoWJ1dTZ5mAEPTYo/f0oUFdo6W154um3ScxudaIhbVuBa4ywU5F6+Gzs8Qdg==",
-    "1.3.1": "sha512-b/ItbyzSYCnxge6LnLtDLD9MZI3wbLy4fvLNwcu8+Rw3x6dG3W2SzrIbV/3ESyXf9aKg+w+ZIFpepSGqbTNZjQ=="
+    "1.3.1": "sha512-b/ItbyzSYCnxge6LnLtDLD9MZI3wbLy4fvLNwcu8+Rw3x6dG3W2SzrIbV/3ESyXf9aKg+w+ZIFpepSGqbTNZjQ==",
+    "1.3.2": "sha512-yI1L5wCeRI5k6YJsKGpCl+TEMZJpGsbH7+sDKlHem3Akeryiek9x+/vJsbTGgA+3u5DLN/bBhyuGfQpJt85GHg=="
   }
 }
