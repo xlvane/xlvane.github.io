@@ -1,4 +1,4 @@
-import { $t as metricsOf, A as checkSource$1, B as createWorksheetParser, Bt as resolveLimits, Cn as CORE_PROPERTIES_PART, Ct as relationshipsPartName, D as HEAD_BYTES, Dt as checkUniqueName, E as CORRUPT_HINT, Et as checkDefinedName, F as readCentralDirectory, Ht as printNames, I as unsupported, Jt as DRAWING_CONTENT_TYPE, K as SheetRels, L as validateLocalHeaders, Lt as DEFAULT_READ_LIMITS, M as limitExceeded, N as locateCentralDirectory, Nn as clip, O as NotLoaded, Ot as nameScopeKey, Pt as normalizeStyle, Q as createSharedStrings, R as WarningCollector, Rt as checkKeyText, Sn as APP_PROPERTIES_PART, St as openPackage, T as Bytes, Tn as corePropertiesXml, Tt as normalizeTable, Ut as printXml, Wt as sheetProtectionXml, X as cellXml, Xt as MediaParts, Y as buildStyles, Yt as IMAGE_CONTENT_TYPES, Z as contentTypesXml, Zt as drawingParts, _t as FormulaGroups, a as DATE_FORMAT, b as readNotes, bn as partKey, cn as chartPartXml, ct as sheetHead, d as convertCellInput, dt as sheetTail, en as resolveAnchor, f as createWorkbook, g as detectHeader, gn as formatCellRef, gt as workbookXml, hn as columnLetters, ht as workbookRelsXml, i as readOptions, in as classifyRelationship, it as noteParts, j as corrupt, k as TAIL_BYTES, kn as createXmlByteStreamParser, ln as chartSheetNames, lt as sheetRelsPartName, mn as MAX_ROWS, n as oneOfOption, nt as hyperlinksXml, o as DATE_TIME_FORMAT, on as CHART_CONTENT_TYPE, ot as rootRelsXml, p as sortedNotes, pn as MAX_COLUMNS, pt as tableParts, rt as nameTitles, sn as chartPartName, st as rowStart, tn as resolveImage, u as checkBookViews, un as resolveChartSheets, ut as sheetRulesXml, v as isoDate, w as workbookPartsToLoad, wn as appPropertiesXml, wt as TABLE_CONTENT_TYPE, xn as zipNameToPartName, y as analyzeWorkbook, yt as crc32, z as sheetNotFound, zn as XlvError, zt as checkOutputPositions } from "./options-Cxt-LJE4.js";
+import { $t as metricsOf, A as checkSource$1, B as createWorksheetParser, Bt as resolveLimits, Cn as CORE_PROPERTIES_PART, Ct as relationshipsPartName, D as HEAD_BYTES, Dt as checkUniqueName, E as CORRUPT_HINT, Et as checkDefinedName, F as readCentralDirectory, Ht as printNames, I as unsupported, Jt as DRAWING_CONTENT_TYPE, K as SheetRels, L as validateLocalHeaders, Lt as DEFAULT_READ_LIMITS, M as limitExceeded, N as locateCentralDirectory, Nn as clip, O as NotLoaded, Ot as nameScopeKey, Pt as normalizeStyle, Q as createSharedStrings, R as WarningCollector, Rt as checkKeyText, Sn as APP_PROPERTIES_PART, St as openPackage, T as Bytes, Tn as corePropertiesXml, Tt as normalizeTable, Ut as printXml, Wt as sheetProtectionXml, X as cellXml, Xt as MediaParts, Y as buildStyles, Yt as IMAGE_CONTENT_TYPES, Z as contentTypesXml, Zt as drawingParts, _t as FormulaGroups, a as DATE_FORMAT, b as readNotes, bn as partKey, cn as chartPartXml, ct as sheetHead, d as convertCellInput, dt as sheetTail, en as resolveAnchor, f as createWorkbook, g as detectHeader, gn as formatCellRef, gt as workbookXml, hn as columnLetters, ht as workbookRelsXml, i as readOptions, in as classifyRelationship, it as noteParts, j as corrupt, k as TAIL_BYTES, kn as createXmlByteStreamParser, ln as chartSheetNames, lt as sheetRelsPartName, mn as MAX_ROWS, n as oneOfOption, nt as hyperlinksXml, o as DATE_TIME_FORMAT, on as CHART_CONTENT_TYPE, ot as rootRelsXml, p as sortedNotes, pn as MAX_COLUMNS, pt as tableParts, rt as nameTitles, sn as chartPartName, st as rowStart, tn as resolveImage, u as checkBookViews, un as resolveChartSheets, ut as sheetRulesXml, v as isoDate, w as workbookPartsToLoad, wn as appPropertiesXml, wt as TABLE_CONTENT_TYPE, xn as zipNameToPartName, y as analyzeWorkbook, yt as crc32, z as sheetNotFound, zn as XlvError, zt as checkOutputPositions } from "./options-BD873QNd.js";
 import { Deflate, Inflate } from "../fflate/browser.js";
 // src/zip/stream.ts
 /**
@@ -586,13 +586,19 @@ async function openWorkbookStream(source, options) {
 				formulaText: limits.maxSharedStringChars
 			},
 			formatCache
-		}, (number, cells, rowInfo, styledCells) => ready.push({
-			number,
-			cells: withNotes(cells),
-			styledCells,
-			height: rowInfo?.height ?? null,
-			hidden: rowInfo?.hidden ?? false
-		}));
+		}, (number, cells, rowInfo, styledCells) => {
+			const row = {
+				number,
+				cells: withNotes(cells),
+				styledCells,
+				height: rowInfo?.height ?? null,
+				hidden: rowInfo?.hidden ?? false
+			};
+			ready.push(rowInfo?.style === void 0 ? row : {
+				...row,
+				style: rowInfo.style
+			});
+		});
 		const parser = createXmlByteStreamParser(handler, {
 			part,
 			limits
@@ -868,12 +874,14 @@ function writeWorkbookStream(options) {
 		"images",
 		"views",
 		"calculation",
-		"compressionLevel"
+		"compressionLevel",
+		"defaultFont"
 	], "writeWorkbookStream options");
 	const dateSystem = o.get("dateSystem");
 	const book = createWorkbook({
 		...dateSystem === void 0 ? {} : { dateSystem },
-		...o.has("properties") ? { properties: o.get("properties") } : {}
+		...o.has("properties") ? { properties: o.get("properties") } : {},
+		...o.has("defaultFont") ? { defaultFont: o.get("defaultFont") } : {}
 	});
 	if (o.has("protection")) book.protect(o.get("protection"));
 	if (o.has("views")) book.views(o.get("views"));
@@ -1128,6 +1136,7 @@ function writeWorkbookStream(options) {
 					"values",
 					"style",
 					"styles",
+					"rowStyle",
 					"height",
 					"hidden",
 					"outlineLevel",
@@ -1151,6 +1160,7 @@ function writeWorkbookStream(options) {
 					"outlineLevel",
 					"collapsed"
 				]) if (ro.get(key) !== void 0) format[key] = ro.get(key);
+				if (ro.get("rowStyle") !== void 0) format.style = ro.get("rowStyle");
 				if (Object.keys(format).length > 0) {
 					p.sheet.row(r, format);
 					info = p.sheet.rowMap.get(r);
@@ -1308,7 +1318,7 @@ function writeWorkbookStream(options) {
 		};
 		yield {
 			name: "xl/styles.xml",
-			data: encoder.encode(buildStyles(book.styles(), true, book.dxfStyles()).xml)
+			data: encoder.encode(buildStyles(book.styles(), true, book.dxfStyles(), book.fontDefault).xml)
 		};
 		if (core !== null) yield {
 			name: CORE_PROPERTIES_PART,

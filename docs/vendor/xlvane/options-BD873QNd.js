@@ -5889,11 +5889,20 @@ function parseDxf(el, ns, colorOf, warn) {
 function parseDxfElement(el, ns, warn) {
 	return parseDxf(el, ns, (c, what) => c === void 0 ? void 0 : parseColor(c, what, warn), warn);
 }
-/** Parses CT_Color (W2-16): rgb as ARGB, or theme (with tint), indexed or auto. */
+/**
+* Parses CT_Color (W2-16): rgb as ARGB, or theme (with tint), indexed or auto. An rgb of exactly
+* 6 hex digits is not valid (ST_UnsignedIntHex has 4 bytes) but some writers produce it; it is
+* read as an opaque RGB colour, alpha FF, with a warning (W2-16a).
+*/
 function parseColor(el, what, warn) {
 	const rgb = el.attrs.get("rgb");
 	if (rgb !== void 0) {
 		if (/^[0-9A-Fa-f]{8}$/.test(rgb)) return rgb.toUpperCase();
+		if (/^[0-9A-Fa-f]{6}$/.test(rgb)) {
+			const argb = `FF${rgb.toUpperCase()}`;
+			warn(`The ${what} colour ${quote(rgb)} is not an ARGB value; it was read as the opaque RGB colour "${argb}".`);
+			return argb;
+		}
 		warn(`The ${what} colour ${quote(rgb)} is not an ARGB value; it is ignored.`);
 		return;
 	}
@@ -7798,15 +7807,20 @@ function reusableBuiltinNumFmt(code) {
 /**
 * Builds the styles part. With `identity`, cell format `i` is interned style `i` (no merging of
 * styles that give the same record), so a streaming writer can use style ids as `s` values
-* before the part is built.
+* before the part is built. `defaultFont` is font 0, the workbook's default font (W2-12); its
+* name and size, or those of {@link DEFAULT_FONT}, complete the other fonts.
 */
-function buildStyles(styles, identity = false, dxfs = []) {
+function buildStyles(styles, identity = false, dxfs = [], defaultFont = null) {
 	const fonts = new Table();
 	const fills = new Table();
 	const borders = new Table();
 	const xfs = new Table();
 	const numFmts = /* @__PURE__ */ new Map();
-	fonts.add(fontXml({}));
+	const fontDefaults = {
+		name: defaultFont?.name ?? DEFAULT_FONT.name,
+		size: defaultFont?.size ?? DEFAULT_FONT.size
+	};
+	fonts.add(fontXml(defaultFont ?? {}, fontDefaults));
 	fills.add("<fill><patternFill patternType=\"none\"/></fill>");
 	fills.add("<fill><patternFill patternType=\"gray125\"/></fill>");
 	borders.add("<border><left/><right/><top/><bottom/><diagonal/></border>");
@@ -7823,7 +7837,7 @@ function buildStyles(styles, identity = false, dxfs = []) {
 		return id;
 	};
 	const xfOf = styles.map((style) => {
-		const fontId = style.font ? fonts.add(fontXml(style.font)) : 0;
+		const fontId = style.font ? fonts.add(fontXml(style.font, fontDefaults)) : 0;
 		let fillId = 0;
 		if (style.fill) fillId = fills.add(fillXml(style.fill));
 		let borderId = 0;
@@ -8037,9 +8051,15 @@ function sheetHead(sheet, selected, dimension, xfOf) {
 	}
 	return `${xml}<sheetData>`;
 }
-/** The start tag of a row (without `>` for rows that have cells: callers add `>` or `/>`). */
-function rowStart(r, info) {
+/**
+* The start tag of a row (without `>` for rows that have cells: callers add `>` or `/>`). `xfOf`
+* maps interned style ids to cell format indexes (identity when omitted).
+*/
+function rowStart(r, info, xfOf) {
 	let xml = `<row${attr("r", r)}`;
+	const style = info?.style ?? 0;
+	const xf = style === 0 ? 0 : xfOf?.[style] ?? style;
+	if (xf !== 0) xml += `${attr("s", xf)} customFormat="1"`;
 	if (info?.height != null) xml += `${attr("ht", info.height)} customHeight="1"`;
 	if (info?.hidden) xml += " hidden=\"1\"";
 	if (info?.outlineLevel) xml += attr("outlineLevel", info.outlineLevel);
@@ -8418,7 +8438,7 @@ function sheetXml(sheet, selected, xfOf, sst, rels, after = "", sheetNumber = 1)
 	const groups = new FormulaGroups(sheet.name);
 	for (const r of sortedRows) {
 		const cells = sheet.cells.get(r);
-		const start = rowStart(r, sheet.rows.get(r));
+		const start = rowStart(r, sheet.rows.get(r), xfOf);
 		if (!cells || cells.size === 0) {
 			xml += `${start}/>`;
 			continue;
@@ -8439,7 +8459,7 @@ function sheetXml(sheet, selected, xfOf, sst, rels, after = "", sheetNumber = 1)
 }
 /** Builds all parts and returns the zipped package. */
 function writePackage(input) {
-	const { xml: stylesXml, xfOf } = buildStyles(input.styles, false, input.dxfs);
+	const { xml: stylesXml, xfOf } = buildStyles(input.styles, false, input.dxfs, input.defaultFont);
 	const shared = input.sharedStrings !== false;
 	const sst = shared ? new SharedStrings() : null;
 	const active = input.sheets.findIndex((s) => s.state === "visible");
@@ -10502,10 +10522,23 @@ function createWorksheetParser(ctx, onRow) {
 				if (ht !== void 0 && (height === null || height < 0)) ctx.warnings.add("XLV_W_INVALID_VALUE", `The row height "${ht.slice(0, 20)}" is not a valid number; it is ignored.`, loc());
 				const validHeight = height !== null && height >= 0 ? height : null;
 				const outline = parseOutline(attrs);
-				if (validHeight !== null || hidden || outline.outlineLevel !== void 0 || outline.collapsed !== void 0) rowInfo.set(currentRow, {
+				const customFormat = attrs.get("customFormat");
+				let style;
+				if (customFormat !== void 0 && parseXsdBoolean(customFormat) === true) {
+					const s = attrs.get("s") ?? "0";
+					const index = parseUint(s, 10);
+					if (index === null) ctx.warnings.add("XLV_W_INVALID_VALUE", `The row style index "${s.slice(0, 20)}" is not a number; it is ignored.`, loc());
+					else style = ctx.styles.cellStyle(index, numberFormat(index).code);
+				}
+				if (validHeight !== null || hidden || outline.outlineLevel !== void 0 || outline.collapsed !== void 0 || style !== void 0) rowInfo.set(currentRow, style === void 0 ? {
 					height: validHeight,
 					hidden,
 					...outline
+				} : {
+					height: validHeight,
+					hidden,
+					...outline,
+					style
 				});
 			} else if (depth === 4 && local === "c" && parent === "row" && path[1] === "sheetData") {
 				if (skipRow) return;
@@ -11528,9 +11561,10 @@ var ReadWorkbook = class {
 	protection;
 	views;
 	calculation;
+	defaultFont;
 	/** Image parts used by pictures and backgrounds, each once (TD-31). */
 	images = [];
-	constructor(sheets, dateSystem, conformance, format, hasMacros, externalLinkCount, warnings, properties, definedNames, protection = null, views = [], calculation = null) {
+	constructor(sheets, dateSystem, conformance, format, hasMacros, externalLinkCount, warnings, properties, definedNames, protection = null, views = [], calculation = null, defaultFont = null) {
 		this.sheets = sheets;
 		this.dateSystem = dateSystem;
 		this.conformance = conformance;
@@ -11543,6 +11577,7 @@ var ReadWorkbook = class {
 		this.protection = protection;
 		this.views = views;
 		this.calculation = calculation;
+		this.defaultFont = defaultFont;
 	}
 	getSheet(name) {
 		const sheet = this.sheets.find((s) => s.name === name);
@@ -11648,7 +11683,7 @@ function readWorkbook(data, options) {
 		sheet.charts = drawing.charts;
 		sheet.backgroundImage = drawing.background;
 	});
-	const workbook = new ReadWorkbook(sheets, book.dateSystem, book.conformance, book.format, book.hasMacros, book.externalLinkCount, warnings.list(), book.properties, book.definedNames, book.protection, book.views, book.calculation);
+	const workbook = new ReadWorkbook(sheets, book.dateSystem, book.conformance, book.format, book.hasMacros, book.externalLinkCount, warnings.list(), book.properties, book.definedNames, book.protection, book.views, book.calculation, book.styles.defaultFont() ?? null);
 	workbook.images = [...media.values()].filter((m) => m !== null);
 	return workbook;
 }
@@ -12967,13 +13002,13 @@ var NewSheet = class {
 		});
 	}
 	/**
-	* Sets the height or visibility of a row (1-based).
+	* Sets the height, visibility, outline or default style of a row (1-based).
 	*
 	* @example
 	* ```ts
 	* import { createWorkbook } from 'xlvane';
 	*
-	* createWorkbook().addSheet('Data').row(1, { height: 30 }).row(5, { hidden: true });
+	* createWorkbook().addSheet('Data').row(1, { height: 30, style: { font: { bold: true } } }).row(5, { hidden: true });
 	* ```
 	*/
 	row(row, options) {
@@ -12982,12 +13017,14 @@ var NewSheet = class {
 			const o = readOptions$1(options, [
 				"height",
 				"hidden",
+				"style",
 				"outlineLevel",
 				"collapsed"
 			], "row options");
 			const current = this.rowMap.get(row) ?? {
 				height: null,
 				hidden: false,
+				style: 0,
 				outlineLevel: 0,
 				collapsed: false
 			};
@@ -13001,6 +13038,11 @@ var NewSheet = class {
 				if (typeof hidden !== "boolean") throw invalidOption("Row option \"hidden\" must be true or false.", "Use { hidden: true }.");
 				current.hidden = hidden;
 			}
+			const style = o.get("style");
+			if (style !== void 0) current.style = this.book.intern(located({
+				sheet: this.name,
+				cell: `${String(row)}:${String(row)}`
+			}, () => normalizeStyle(style)));
 			readOutline(o, current, "Row");
 			this.rowMap.set(row, current);
 			return this;
@@ -14041,10 +14083,13 @@ var NewWorkbook = class {
 	bookViews = [];
 	/** @internal `calcPr`, set by {@link NewWorkbook.calculation}. */
 	calcProps = null;
+	/** @internal Font 0 given to {@link createWorkbook}, or `null` for the default (W2-12). */
+	fontDefault;
 	/** @internal Use {@link createWorkbook}. */
-	constructor(dateSystem, properties = {}) {
+	constructor(dateSystem, properties = {}, defaultFont = null) {
 		this.dateSystem = dateSystem;
 		this.properties = properties;
+		this.fontDefault = defaultFont;
 		this.styleIds.set(stableKey({}), 0);
 	}
 	/**
@@ -14374,10 +14419,16 @@ var NewWorkbook = class {
 * ```
 */
 function createWorkbook(options) {
-	const o = readOptions$1(options, ["dateSystem", "properties"], "workbook options");
+	const o = readOptions$1(options, [
+		"dateSystem",
+		"properties",
+		"defaultFont"
+	], "workbook options");
 	const dateSystem = o.get("dateSystem") ?? "1900";
 	if (dateSystem !== "1900" && dateSystem !== "1904") throw invalidOption(`Date system ${JSON.stringify(String(dateSystem).slice(0, 20))} is not valid.`, "Use \"1900\" (the default) or \"1904\".");
-	return new NewWorkbook(dateSystem, normalizeProperties(o.get("properties")));
+	const font = o.get("defaultFont");
+	const defaultFont = font === void 0 ? null : normalizeStyle({ font }).font ?? null;
+	return new NewWorkbook(dateSystem, normalizeProperties(o.get("properties")), defaultFont);
 }
 /**
 * Checks that `activeTab` and `firstSheet` of every workbook window name an existing sheet: both
@@ -14439,7 +14490,8 @@ function writeWorkbook(workbook, options = {}) {
 		definedNames: [...workbook.definedNames, ...sheets.flatMap((s) => printNames(s.name, s.print))],
 		dxfs: workbook.dxfStyles(),
 		workbookProtection: workbook.workbookProtection,
-		images: workbook.imageList()
+		images: workbook.imageList(),
+		defaultFont: workbook.fontDefault
 	});
 }
 // src/util/options.ts
