@@ -12,6 +12,7 @@ node --test test/*.test.mjs              # tests of the Markdown converter
 
 - No dependencies: the generator, the Markdown converter and the tar reader are in `scripts/`.
 - The documentation pages are the Markdown files of the packages published on npm, so they match that version.
+- `src/verification/` holds the ownership file of Google Search Console, copied unchanged to the root of the site; do not remove it while the site is registered there.
 - For search engines, the build writes `robots.txt` (everything allowed, with the sitemap) and `sitemap.xml` (every page), and each page carries its canonical address and Open Graph tags; `check.mjs` checks that they agree. The formats follow the sitemaps.org protocol 0.9 and the Open Graph protocol; they were written without reaching those pages from the build environment, so check them when convenient.
 - The demo uses the browser code of the published package (`docs/vendor/xlvane/`) and fflate's browser build (`docs/vendor/fflate/`); nothing is loaded from other sites, and every page sets a Content-Security-Policy that allows only this site.
 

@@ -5,7 +5,7 @@
 // site shows exactly the documentation of that version. The demo uses the package's own browser
 // code (dist/) and fflate's browser build, copied into docs/vendor/.
 import { createHash } from 'node:crypto';
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { canonicalUrl, page } from './lib/layout.mjs';
@@ -125,6 +125,8 @@ mkdirSync(OUT, { recursive: true });
 write('.nojekyll', '');
 cpSync(join(ROOT, 'src/style.css'), join(OUT, 'style.css'));
 cpSync(join(ROOT, 'src/favicon.svg'), join(OUT, 'favicon.svg'));
+// Ownership files of search engine webmaster tools (Google Search Console), copied to the root unchanged.
+for (const name of readdirSync(join(ROOT, 'src/verification'))) cpSync(join(ROOT, 'src/verification', name), join(OUT, name));
 
 // Documentation pages.
 const guideNav = PAGES.filter((p) => p.out.startsWith('guide/'));

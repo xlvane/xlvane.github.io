@@ -18,7 +18,9 @@ function files(dir) {
 
 // &amp; last, so that "&amp;lt;" becomes "&lt;" and not "<".
 const decode = (s) => s.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
-const pages = files(OUT).filter((f) => f.endsWith('.html'));
+/** Ownership files of webmaster tools (src/verification/): plain text, not pages. */
+const VERIFICATION = /^google[0-9a-f]+\.html$/;
+const pages = files(OUT).filter((f) => f.endsWith('.html') && !VERIFICATION.test(relative(OUT, f)));
 const ids = new Map(pages.map((p) => [p, new Set([...readFileSync(p, 'utf8').matchAll(/\sid="([^"]*)"/g)].map((m) => decode(m[1])))]));
 const problems = [];
 let external = 0;
