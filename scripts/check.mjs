@@ -5,7 +5,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { CSP, SITE, canonicalUrl } from './lib/layout.mjs';
+import { CSP, MOVED, SITE, canonicalUrl } from './lib/layout.mjs';
 
 const OUT = fileURLToPath(new URL('../docs/', import.meta.url));
 
@@ -54,19 +54,26 @@ for (const page of pages) {
     if (hash !== undefined && target.endsWith('.html') && !ids.get(target)?.has(hash)) problems.push(`${where}: ${url} has no id "${hash}"`);
   }
 }
-// robots.txt names the sitemap; the sitemap lists exactly the pages outside vendor/ and the
-// canonical address of each page is its address in the sitemap.
+// robots.txt names the sitemap; the sitemap lists exactly the pages outside vendor/ (except pages
+// that moved) and the canonical address of each page is its address in the sitemap (for a page that
+// moved, the address of the new page).
 const robots = existsSync(join(OUT, 'robots.txt')) ? readFileSync(join(OUT, 'robots.txt'), 'utf8') : '';
 if (!robots.includes(`Sitemap: ${SITE}sitemap.xml`)) problems.push('robots.txt: missing or without the sitemap');
 const sitemap = existsSync(join(OUT, 'sitemap.xml')) ? readFileSync(join(OUT, 'sitemap.xml'), 'utf8') : '';
 const listed = [...sitemap.matchAll(/<loc>([^<]*)<\/loc>/g)].map((m) => decode(m[1])).sort();
-const expected = pages.filter((p) => !relative(OUT, p).startsWith('vendor')).map((p) => canonicalUrl(relative(OUT, p).split(sep).join('/'))).sort();
+const sitePath = (p) => relative(OUT, p).split(sep).join('/');
+const expected = pages.filter((p) => !sitePath(p).startsWith('vendor') && !MOVED.has(sitePath(p))).map((p) => canonicalUrl(sitePath(p))).sort();
+for (const [from, to] of MOVED) {
+  if (!existsSync(join(OUT, from))) problems.push(`${from}: the page that moved to ${to} is missing`);
+  else if (!readFileSync(join(OUT, from), 'utf8').includes(`href="${relative(dirname(from), to).split(sep).join('/')}"`)) problems.push(`${from}: no link to ${to}`);
+}
 if (JSON.stringify(listed) !== JSON.stringify(expected)) problems.push(`sitemap.xml: lists ${JSON.stringify(listed)}, expected ${JSON.stringify(expected)}`);
 for (const page of pages) {
   const where = relative(OUT, page).split(sep).join('/');
   if (where.startsWith('vendor')) continue;
   const canonical = /<link rel="canonical" href="([^"]*)">/.exec(readFileSync(page, 'utf8'))?.[1];
-  if (canonical === undefined || decode(canonical) !== canonicalUrl(where)) problems.push(`${where}: canonical ${String(canonical)} is not ${canonicalUrl(where)}`);
+  const own = canonicalUrl(MOVED.get(where) ?? where);
+  if (canonical === undefined || decode(canonical) !== own) problems.push(`${where}: canonical ${String(canonical)} is not ${own}`);
 }
 if (problems.length > 0) {
   console.error(problems.join('\n'));

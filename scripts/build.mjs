@@ -1,14 +1,14 @@
 // Builds the site into docs/ (published by GitHub Pages from the main branch, /docs folder) from
 // the packages published on npm and the changelog of the release tag:
 //   node scripts/build.mjs --version 1.1.0
-// The documentation pages are the Markdown files of the xlvane, @xlvane/compat and @xlvane/mcp packages, so the
+// The documentation pages are the Markdown files of the xlvane, @xlvane/exceljs and @xlvane/mcp packages, so the
 // site shows exactly the documentation of that version. The demo uses the package's own browser
 // code (dist/) and fflate's browser build, copied into docs/vendor/.
 import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { canonicalUrl, page } from './lib/layout.mjs';
+import { MOVED, canonicalUrl, page } from './lib/layout.mjs';
 import { escapeHtml, markdownToHtml } from './lib/markdown.mjs';
 import { fetchPackage } from './lib/npm.mjs';
 
@@ -25,7 +25,7 @@ const accept = process.argv.includes('--accept');
 /** `--accept-dependency name@version` (repeatable): a dependency version accepted by name, never by --accept. */
 const acceptedDependencies = new Set(process.argv.flatMap((a, i) => (process.argv[i - 1] === '--accept-dependency' ? [a] : [])));
 /** What --accept covers: the xlvane packages, whose provenance is checked, and the changelog of the release tag. */
-const OWN = new Set(['xlvane', '@xlvane/compat', '@xlvane/mcp', 'CHANGELOG.md']);
+const OWN = new Set(['xlvane', '@xlvane/exceljs', '@xlvane/mcp', 'CHANGELOG.md']);
 const LOCK = join(ROOT, 'vendor.lock.json');
 const lock = existsSync(LOCK) ? JSON.parse(readFileSync(LOCK, 'utf8')) : {};
 /**
@@ -56,7 +56,7 @@ if (!version || !/^\d+\.\d+\.\d+$/.test(version)) {
 /** Repository paths of the documents, and the page each becomes. */
 const PAGES = [
   { repo: 'packages/xlvane/README.md', pkg: 'xlvane', file: 'README.md', out: 'guide/index.html', title: 'Guide' },
-  { repo: 'packages/compat/README.md', pkg: '@xlvane/compat', file: 'README.md', out: 'guide/compat.html', title: '@xlvane/compat' },
+  { repo: 'packages/exceljs/README.md', pkg: '@xlvane/exceljs', file: 'README.md', out: 'guide/exceljs.html', title: '@xlvane/exceljs' },
   { repo: 'packages/mcp/README.md', pkg: '@xlvane/mcp', file: 'README.md', out: 'guide/mcp.html', title: '@xlvane/mcp (MCP server)' },
   { repo: 'docs/errors.md', pkg: 'xlvane', file: 'docs/errors.md', out: 'guide/errors.html', title: 'Errors and warnings' },
   { repo: 'docs/inspect-json.md', pkg: 'xlvane', file: 'docs/inspect-json.md', out: 'guide/inspect-json.html', title: 'inspect() report' },
@@ -70,14 +70,14 @@ const PAGES = [
 const PAGE_BY_REPO = new Map(PAGES.map((p) => [p.repo, p.out]));
 PAGE_BY_REPO.set('README.md', 'index.html');
 
-const [core, compat, mcp] = await Promise.all([fetchPackage('xlvane', version), fetchPackage('@xlvane/compat', version), fetchPackage('@xlvane/mcp', version)]);
+const [core, exceljs, mcp] = await Promise.all([fetchPackage('xlvane', version), fetchPackage('@xlvane/exceljs', version), fetchPackage('@xlvane/mcp', version)]);
 // The newest fflate that xlvane's dependency range allows, as npm would install it (a caret range
 // such as ^0.8.3: same major, or same minor for 0.x).
 const fflateRange = JSON.parse(new TextDecoder().decode(core.files.get('package.json'))).dependencies.fflate;
 const fflateVersion = await newestInRange('fflate', fflateRange);
 const fflatePkg = await fetchPackage('fflate', fflateVersion);
 locked('xlvane', version, core.integrity);
-locked('@xlvane/compat', version, compat.integrity);
+locked('@xlvane/exceljs', version, exceljs.integrity);
 locked('@xlvane/mcp', version, mcp.integrity);
 locked('fflate', fflateVersion, fflatePkg.integrity);
 const changelogResponse = await fetch(`https://raw.githubusercontent.com/DevXord/xlvane/v${version}/CHANGELOG.md`);
@@ -92,7 +92,7 @@ const text = (files, path) => {
   if (!data) throw new Error(`${path} is missing from the package.`);
   return new TextDecoder().decode(data);
 };
-const FILES = { xlvane: core.files, '@xlvane/compat': compat.files, '@xlvane/mcp': mcp.files };
+const FILES = { xlvane: core.files, '@xlvane/exceljs': exceljs.files, '@xlvane/mcp': mcp.files };
 const source = (p) => (p.pkg === null ? changelog : text(FILES[p.pkg], p.file));
 
 /** A link of a document, mapped to a page of the site (relative to `from`) or to GitHub. */
@@ -148,6 +148,33 @@ for (const p of PAGES) {
       version,
       toc: headings.filter((h) => h.level === 2 || h.level === 3),
       body: `${sub}<article class="doc">${html}${sourceLink}</article>`,
+    }),
+  );
+}
+// Pages that moved: a short page at the old address that links to the new one.
+const MOVED_TEXT = {
+  'guide/compat.html': {
+    title: '@xlvane/compat is now @xlvane/exceljs',
+    body: '<p>From version 1.3.3 the exceljs-compatible package is published as <code>@xlvane/exceljs</code>. <code>@xlvane/compat</code> gets no new versions and is marked as deprecated on npm.</p><p>To switch, change the alias in <code>package.json</code> from <code>"exceljs": "npm:@xlvane/compat@^1"</code> to <code>"exceljs": "npm:@xlvane/exceljs@^1"</code>, or run <code>npx xlvane migrate --force</code>. The code keeps importing <code>exceljs</code>.</p>',
+  },
+};
+for (const [from, to] of MOVED) {
+  const moved = MOVED_TEXT[from];
+  if (!moved) throw new Error(`no text for the moved page ${from}`);
+  if (!PAGES.some((p) => p.out === to)) throw new Error(`${from} moved to ${to}, which is not a page`);
+  const root = '../'.repeat(from.split('/').length - 1);
+  const href = posix.relative(posix.dirname(from), to);
+  write(
+    from,
+    page({
+      title: `${moved.title} - xlvane`,
+      path: from,
+      canonicalPath: to,
+      description: moved.title,
+      root,
+      active: from.startsWith('guide/') ? 'guide' : '',
+      version,
+      body: `<article class="doc"><h1>${escapeHtml(moved.title)}</h1>${moved.body}<p><a href="${escapeHtml(href)}">Go to the new page</a></p></article>`,
     }),
   );
 }
@@ -213,7 +240,7 @@ if (!existsSync(join(OUT, 'index.html'))) throw new Error('index.html was not wr
 const sitePages = ['index.html', ...PAGES.map((p) => p.out), 'demo/index.html'];
 write('sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${sitePages.map((p) => `  <url><loc>${escapeHtml(canonicalUrl(p))}</loc></url>\n`).join('')}</urlset>\n`);
 write('robots.txt', `User-agent: *\nAllow: /\n\nSitemap: ${canonicalUrl('sitemap.xml')}\n`);
-console.log(`docs/: xlvane ${version}, @xlvane/compat ${version}, @xlvane/mcp ${version}, fflate ${fflateVersion}; ${String(PAGES.length + 2)} pages.`);
+console.log(`docs/: xlvane ${version}, @xlvane/exceljs ${version}, @xlvane/mcp ${version}, fflate ${fflateVersion}; ${String(PAGES.length + 2)} pages.`);
 
 /** The newest published version that a caret range (^X.Y.Z) allows; other ranges are refused. */
 async function newestInRange(name, range) {

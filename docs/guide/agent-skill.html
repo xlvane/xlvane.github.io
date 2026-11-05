@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>Agent Skill - xlvane</title>
-<meta name="description" content="Agent Skill of xlvane 1.3.2, an XLSX library.">
+<meta name="description" content="Agent Skill of xlvane 1.3.3, an XLSX library.">
 <link rel="canonical" href="https://xlvane.github.io/guide/agent-skill.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="xlvane">
 <meta property="og:title" content="Agent Skill - xlvane">
-<meta property="og:description" content="Agent Skill of xlvane 1.3.2, an XLSX library.">
+<meta property="og:description" content="Agent Skill of xlvane 1.3.3, an XLSX library.">
 <meta property="og:url" content="https://xlvane.github.io/guide/agent-skill.html">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="../style.css">
@@ -21,14 +21,14 @@
 <header class="site-header">
   <div class="bar">
     <a class="brand" href="../index.html"><span class="logo" aria-hidden="true"></span>xlvane</a>
-    <span class="version" title="Version on npm">1.3.2</span>
+    <span class="version" title="Version on npm">1.3.3</span>
     <nav class="main-nav" aria-label="Main"><a href="../guide/index.html" aria-current="page">Guide</a><a href="../demo/index.html">Demo</a><a href="../changelog.html">Changelog</a><a href="https://github.com/DevXord/xlvane">GitHub</a><a href="https://www.npmjs.com/package/xlvane">npm</a></nav>
   </div>
 </header>
 <div class="layout with-toc">
 <nav class="toc" aria-label="On this page"><p class="toc-title">On this page</p><ul><li class="toc-2"><a href="#recommended-order-of-work">Recommended order of work</a></li><li class="toc-2"><a href="#library">Library</a></li><li class="toc-3"><a href="#inserting-and-deleting-rows">Inserting and deleting rows</a></li><li class="toc-2"><a href="#command-line">Command line</a></li><li class="toc-2"><a href="#mcp-server">MCP server</a></li><li class="toc-2"><a href="#errors">Errors</a></li><li class="toc-2"><a href="#things-to-know">Things to know</a></li></ul></nav>
 <main id="main">
-<nav class="guide-nav" aria-label="Guide"><a href="index.html">Guide</a><a href="compat.html">@xlvane/compat</a><a href="mcp.html">@xlvane/mcp (MCP server)</a><a href="errors.html">Errors and warnings</a><a href="inspect-json.html">inspect() report</a><a href="cli-json.html">Command line JSON</a><a href="exceljs-compat.html">exceljs compatibility</a><a href="migrate-from-exceljs.html">Moving from exceljs</a><a href="xlsx-cves.html">CVEs of the xlsx package</a><a href="agent-skill.html" aria-current="page">Agent Skill</a></nav><article class="doc"><h1 id="xlvane-xlsx-files"><a class="anchor" href="#xlvane-xlsx-files" aria-hidden="true">#</a>xlvane: XLSX files</h1>
+<nav class="guide-nav" aria-label="Guide"><a href="index.html">Guide</a><a href="exceljs.html">@xlvane/exceljs</a><a href="mcp.html">@xlvane/mcp (MCP server)</a><a href="errors.html">Errors and warnings</a><a href="inspect-json.html">inspect() report</a><a href="cli-json.html">Command line JSON</a><a href="exceljs-compat.html">exceljs compatibility</a><a href="migrate-from-exceljs.html">Moving from exceljs</a><a href="xlsx-cves.html">CVEs of the xlsx package</a><a href="agent-skill.html" aria-current="page">Agent Skill</a></nav><article class="doc"><h1 id="xlvane-xlsx-files"><a class="anchor" href="#xlvane-xlsx-files" aria-hidden="true">#</a>xlvane: XLSX files</h1>
 <p>xlvane reads, writes and edits <code>.xlsx</code> files. It treats input files as untrusted (size and ZIP limits, no external entities, macros are never run, links are never followed). It does not calculate formulas: it reads the cached results stored in the file and writes the formula text you give.</p>
 <p>Three ways to use it, with the same behaviour:</p>
 <div class="table"><table><thead><tr><th>Way</th><th>When</th><th>Start</th></tr></thead><tbody><tr><td>Library <code>xlvane</code></td><td>You write JavaScript or TypeScript code</td><td><code>npm install xlvane</code></td></tr><tr><td>Command line <code>xlvane</code></td><td>You run shell commands</td><td><code>npx xlvane help</code></td></tr><tr><td>MCP server <code>@xlvane/mcp</code></td><td>Your client calls MCP tools</td><td><code>npx @xlvane/mcp --root &lt;dir&gt;</code></td></tr></tbody></table></div>
@@ -149,7 +149,7 @@ const { bytes: shorter } = deleteRows(wider, { sheet: &#39;Sales&#39;, at: 5, co
 <p>Formulas on every sheet, merged cells, links, notes, conditional formats (also extended data bars and icon sets, and thresholds that refer to cells), data validation and defined names follow the rows; references to deleted cells become <code>#REF!</code>. Tables and pictures move with their rows. Drawings with charts or shapes, sparklines and slicers, and a deletion that would cut a picture or remove a table&#39;s header row, totals row or all of its data rows, are refused with <code>XLV_E_NOT_SUPPORTED</code>.</p>
 <p><code>inspect()</code> reports the same items (<code>properties</code>, <code>definedNames</code>, and per sheet <code>richTextCellCount</code>, <code>styledColumns</code>, <code>hyperlinkCount</code> and <code>noteCount</code>). A column style is a default for cells added later; xlvane does not apply it to cells you set.</p>
 <p>In Node.js, <code>xlvane/node</code> adds <code>readWorkbookFile</code>, <code>inspectFile</code> and <code>writeWorkbookFile</code> (which never replaces an existing file unless <code>{ overwrite: true }</code> is passed). <code>toCSV</code>, <code>fromCSV</code>, <code>toJSON</code> and <code>fromJSON</code> convert tables. For very large files use <code>openWorkbookStream</code> and <code>writeWorkbookStream</code>.</p>
-<p>Code written for the <code>exceljs</code> API can run on xlvane through <code>@xlvane/compat</code> (<code>&quot;exceljs&quot;: &quot;npm:@xlvane/compat@^1&quot;</code> in package.json); unsupported exceljs features throw <code>XLV_E_NOT_SUPPORTED</code>.</p>
+<p>Code written for the <code>exceljs</code> API can run on xlvane through <code>@xlvane/exceljs</code> (<code>&quot;exceljs&quot;: &quot;npm:@xlvane/exceljs@^1&quot;</code> in package.json); unsupported exceljs features throw <code>XLV_E_NOT_SUPPORTED</code>.</p>
 <h2 id="command-line"><a class="anchor" href="#command-line" aria-hidden="true">#</a>Command line</h2>
 <pre><code class="language-sh">xlvane inspect report.xlsx                        # structure and warnings
 xlvane read report.xlsx --sheet Sales --limit 20  # a sheet as a table
@@ -167,11 +167,11 @@ xlvane validate report.xlsx --columns &quot;Region:string,Revenue:number&quot;</
 <p>Common cases:</p>
 <ul><li><code>XLV_E_SHEET_NOT_FOUND</code>: <code>details.available</code> lists the sheets, and the hint names a close match when there is one.</li><li><code>XLV_E_HEADER_NOT_FOUND</code>: pass the header row number, or <code>header: false</code> to use column letters.</li><li><code>XLV_E_FILE_EXISTS</code>: choose another output path, or overwrite explicitly.</li><li><code>XLV_E_LIMIT_EXCEEDED</code>: the file is larger than a limit; raise the limit only for trusted files.</li></ul>
 <h2 id="things-to-know"><a class="anchor" href="#things-to-know" aria-hidden="true">#</a>Things to know</h2>
-<ul><li>Formulas are not calculated. After <code>editCells</code>, cached results that depend on edited cells are out of date until a spreadsheet program recalculates them (the file asks it to on opening).</li><li>Dates in spreadsheets have no time zone; xlvane returns them as <code>Date</code> objects whose UTC fields hold the spreadsheet&#39;s date and time. As text (<code>toCSV</code>, <code>toJSON</code>, <code>readTable({ dates: &#39;iso&#39; })</code>, <code>inspect</code>, <code>xlvane read --json</code>) they are ISO 8601 without a zone: <code>2024-01-31</code> or <code>2024-01-31T13:45:00</code>.</li><li>JSON has no date type: <code>fromJSON</code> keeps ISO date strings as text. Convert them to <code>Date</code> before <code>fromJSON</code>/<code>writeTable</code> if they should be dates. <code>fromCSV</code> does recognise ISO dates.</li><li><code>xlvane read --json</code> returns the first 50 rows; check <code>truncated</code> and use <code>--limit all</code> for every row. Warnings found while reading are in <code>result.warnings</code>.</li><li><code>.xls</code> (the old binary format) and encrypted files are not supported and are reported with an error code.</li></ul><p class="source">Source: <a href="https://github.com/DevXord/xlvane/blob/v1.3.2/skills/xlvane/SKILL.md">skills/xlvane/SKILL.md</a> (version 1.3.2)</p></article>
+<ul><li>Formulas are not calculated. After <code>editCells</code>, cached results that depend on edited cells are out of date until a spreadsheet program recalculates them (the file asks it to on opening).</li><li>Dates in spreadsheets have no time zone; xlvane returns them as <code>Date</code> objects whose UTC fields hold the spreadsheet&#39;s date and time. As text (<code>toCSV</code>, <code>toJSON</code>, <code>readTable({ dates: &#39;iso&#39; })</code>, <code>inspect</code>, <code>xlvane read --json</code>) they are ISO 8601 without a zone: <code>2024-01-31</code> or <code>2024-01-31T13:45:00</code>.</li><li>JSON has no date type: <code>fromJSON</code> keeps ISO date strings as text. Convert them to <code>Date</code> before <code>fromJSON</code>/<code>writeTable</code> if they should be dates. <code>fromCSV</code> does recognise ISO dates.</li><li><code>xlvane read --json</code> returns the first 50 rows; check <code>truncated</code> and use <code>--limit all</code> for every row. Warnings found while reading are in <code>result.warnings</code>.</li><li><code>.xls</code> (the old binary format) and encrypted files are not supported and are reported with an error code.</li></ul><p class="source">Source: <a href="https://github.com/DevXord/xlvane/blob/v1.3.3/skills/xlvane/SKILL.md">skills/xlvane/SKILL.md</a> (version 1.3.3)</p></article>
 </main>
 </div>
 <footer class="site-footer">
-  <p>xlvane 1.3.2, MIT License. Pages built from the package published on npm. <a href="https://github.com/DevXord/xlvane">Source on GitHub</a> · <a href="https://github.com/DevXord/xlvane/blob/main/SECURITY.md">Reporting a vulnerability</a></p>
+  <p>xlvane 1.3.3, MIT License. Pages built from the package published on npm. <a href="https://github.com/DevXord/xlvane">Source on GitHub</a> · <a href="https://github.com/DevXord/xlvane/blob/main/SECURITY.md">Reporting a vulnerability</a></p>
 </footer>
 </body>
 </html>

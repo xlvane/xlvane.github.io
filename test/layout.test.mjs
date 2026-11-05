@@ -20,3 +20,9 @@ test('every page has its canonical link and Open Graph tags, escaped', () => {
   assert.match(html, /<meta property="og:description" content="d &lt;e&gt;">/);
   assert.match(html, /<meta property="og:type" content="website">/);
 });
+
+test('a page that moved gives the new page as its canonical address', () => {
+  const html = page({ title: 't', description: 'd', path: 'guide/compat.html', canonicalPath: 'guide/exceljs.html', root: '../', version: '1.3.3', body: '' });
+  assert.match(html, /<link rel="canonical" href="https:\/\/xlvane\.github\.io\/guide\/exceljs\.html">/);
+  assert.match(html, /<meta property="og:url" content="https:\/\/xlvane\.github\.io\/guide\/exceljs\.html">/);
+});

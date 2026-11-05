@@ -17,6 +17,13 @@ export function canonicalUrl(path) {
 /** Content-Security-Policy of every page: nothing is loaded from other origins. */
 export const CSP = "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'";
 
+/**
+ * Pages that moved: the old path still gets a short page that links to the new one, with the new
+ * page's canonical address, and is left out of the sitemap (old links from npm and search results
+ * keep working).
+ */
+export const MOVED = new Map([['guide/compat.html', 'guide/exceljs.html']]);
+
 const NAV = [
   ['guide/index.html', 'Guide', 'guide'],
   ['demo/index.html', 'Demo', 'demo'],
@@ -24,11 +31,12 @@ const NAV = [
 ];
 
 /**
- * A complete page. `path` is its path in docs/ (for the canonical address); `root` is the relative path to the site root ("" or "../"); `active` marks the
+ * A complete page. `path` is its path in docs/ (for the canonical address, unless `canonicalPath`
+ * names another page, as for a page that moved); `root` is the relative path to the site root ("" or "../"); `active` marks the
  * navigation entry; `toc` is a list of { level, text, id } shown beside the content.
  */
-export function page({ title, description, path, root, active = '', body, toc = [], version, scripts = [], wide = false }) {
-  const url = canonicalUrl(path);
+export function page({ title, description, path, root, active = '', body, toc = [], version, scripts = [], wide = false, canonicalPath = path }) {
+  const url = canonicalUrl(canonicalPath);
   const nav = NAV.map(([href, label, key]) => `<a href="${root}${href}"${key === active ? ' aria-current="page"' : ''}>${label}</a>`).join('');
   const contents =
     toc.length > 0

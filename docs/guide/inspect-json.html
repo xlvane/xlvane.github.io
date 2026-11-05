@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>inspect() report - xlvane</title>
-<meta name="description" content="inspect() report of xlvane 1.3.2, an XLSX library.">
+<meta name="description" content="inspect() report of xlvane 1.3.3, an XLSX library.">
 <link rel="canonical" href="https://xlvane.github.io/guide/inspect-json.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="xlvane">
 <meta property="og:title" content="inspect() report - xlvane">
-<meta property="og:description" content="inspect() report of xlvane 1.3.2, an XLSX library.">
+<meta property="og:description" content="inspect() report of xlvane 1.3.3, an XLSX library.">
 <meta property="og:url" content="https://xlvane.github.io/guide/inspect-json.html">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="../style.css">
@@ -21,14 +21,14 @@
 <header class="site-header">
   <div class="bar">
     <a class="brand" href="../index.html"><span class="logo" aria-hidden="true"></span>xlvane</a>
-    <span class="version" title="Version on npm">1.3.2</span>
+    <span class="version" title="Version on npm">1.3.3</span>
     <nav class="main-nav" aria-label="Main"><a href="../guide/index.html" aria-current="page">Guide</a><a href="../demo/index.html">Demo</a><a href="../changelog.html">Changelog</a><a href="https://github.com/DevXord/xlvane">GitHub</a><a href="https://www.npmjs.com/package/xlvane">npm</a></nav>
   </div>
 </header>
 <div class="layout with-toc">
 <nav class="toc" aria-label="On this page"><p class="toc-title">On this page</p><ul><li class="toc-2"><a href="#options">Options</a></li><li class="toc-2"><a href="#workbook">Workbook</a></li><li class="toc-2"><a href="#sheet">Sheet</a></li><li class="toc-2"><a href="#column">Column</a></li><li class="toc-2"><a href="#warning">Warning</a></li><li class="toc-2"><a href="#example">Example</a></li></ul></nav>
 <main id="main">
-<nav class="guide-nav" aria-label="Guide"><a href="index.html">Guide</a><a href="compat.html">@xlvane/compat</a><a href="mcp.html">@xlvane/mcp (MCP server)</a><a href="errors.html">Errors and warnings</a><a href="inspect-json.html" aria-current="page">inspect() report</a><a href="cli-json.html">Command line JSON</a><a href="exceljs-compat.html">exceljs compatibility</a><a href="migrate-from-exceljs.html">Moving from exceljs</a><a href="xlsx-cves.html">CVEs of the xlsx package</a><a href="agent-skill.html">Agent Skill</a></nav><article class="doc"><h1 id="inspect-json-schema-version-1"><a class="anchor" href="#inspect-json-schema-version-1" aria-hidden="true">#</a><code>inspect()</code> JSON schema, version 1</h1>
+<nav class="guide-nav" aria-label="Guide"><a href="index.html">Guide</a><a href="exceljs.html">@xlvane/exceljs</a><a href="mcp.html">@xlvane/mcp (MCP server)</a><a href="errors.html">Errors and warnings</a><a href="inspect-json.html" aria-current="page">inspect() report</a><a href="cli-json.html">Command line JSON</a><a href="exceljs-compat.html">exceljs compatibility</a><a href="migrate-from-exceljs.html">Moving from exceljs</a><a href="xlsx-cves.html">CVEs of the xlsx package</a><a href="agent-skill.html">Agent Skill</a></nav><article class="doc"><h1 id="inspect-json-schema-version-1"><a class="anchor" href="#inspect-json-schema-version-1" aria-hidden="true">#</a><code>inspect()</code> JSON schema, version 1</h1>
 <p><code>inspect(input, options?)</code> (and <code>inspectFile(path, options?)</code> from <code>xlvane/node</code>) returns plain JSON data describing a workbook. <code>JSON.stringify</code> of the result is lossless. The field <code>schemaVersion</code> changes only when a field is removed or changes meaning; new fields may be added within a version.</p>
 <h2 id="options"><a class="anchor" href="#options" aria-hidden="true">#</a>Options</h2>
 <div class="table"><table><thead><tr><th>Option</th><th>Default</th><th>Meaning</th></tr></thead><tbody><tr><td><code>limits</code></td><td>see <code>DEFAULT_READ_LIMITS</code></td><td>resource limits used while reading the file</td></tr><tr><td><code>maxColumns</code></td><td>200</td><td>maximum number of columns described per sheet; <code>columnsTruncated</code> says whether more exist</td></tr><tr><td><code>headerScanRows</code></td><td>20</td><td>number of leading non-empty rows searched for a header row</td></tr><tr><td><code>formulaSamples</code></td><td>10</td><td>maximum number of example formulas per sheet</td></tr></tbody></table></div>
@@ -100,11 +100,11 @@
     }
   ],
   &quot;warnings&quot;: []
-}</code></pre><p class="source">Source: <a href="https://github.com/DevXord/xlvane/blob/v1.3.2/docs/inspect-json.md">docs/inspect-json.md</a> (version 1.3.2)</p></article>
+}</code></pre><p class="source">Source: <a href="https://github.com/DevXord/xlvane/blob/v1.3.3/docs/inspect-json.md">docs/inspect-json.md</a> (version 1.3.3)</p></article>
 </main>
 </div>
 <footer class="site-footer">
-  <p>xlvane 1.3.2, MIT License. Pages built from the package published on npm. <a href="https://github.com/DevXord/xlvane">Source on GitHub</a> · <a href="https://github.com/DevXord/xlvane/blob/main/SECURITY.md">Reporting a vulnerability</a></p>
+  <p>xlvane 1.3.3, MIT License. Pages built from the package published on npm. <a href="https://github.com/DevXord/xlvane">Source on GitHub</a> · <a href="https://github.com/DevXord/xlvane/blob/main/SECURITY.md">Reporting a vulnerability</a></p>
 </footer>
 </body>
 </html>
