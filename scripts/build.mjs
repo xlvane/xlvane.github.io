@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { MOVED, canonicalUrl, page } from './lib/layout.mjs';
 import { escapeHtml, markdownToHtml } from './lib/markdown.mjs';
 import { fetchPackage } from './lib/npm.mjs';
+import { stripReadmeHeader } from './lib/readme.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const OUT = join(ROOT, 'docs');
@@ -93,7 +94,8 @@ const text = (files, path) => {
   return new TextDecoder().decode(data);
 };
 const FILES = { xlvane: core.files, '@xlvane/exceljs': exceljs.files, '@xlvane/mcp': mcp.files };
-const source = (p) => (p.pkg === null ? changelog : text(FILES[p.pkg], p.file));
+// README files lose their logo and badge lines, which load images from other servers (lib/readme.mjs).
+const source = (p) => (p.pkg === null ? changelog : p.file === 'README.md' ? stripReadmeHeader(text(FILES[p.pkg], p.file)) : text(FILES[p.pkg], p.file));
 
 /** A link of a document, mapped to a page of the site (relative to `from`) or to GitHub. */
 function linker(repoPath, from) {
@@ -181,7 +183,7 @@ for (const [from, to] of MOVED) {
 for (const [path, data] of core.files) if (/^docs\/cli-json\/[\w.-]+\.schema\.json$/.test(path)) write(`guide/${path.slice(5)}`, data);
 
 // Landing page, with the quick start, the command line and the tested environments taken from the README.
-const readme = text(core.files, 'README.md');
+const readme = stripReadmeHeader(text(core.files, 'README.md'));
 const section = (heading) => {
   const start = readme.indexOf(`\n## ${heading}\n`);
   if (start === -1) throw new Error(`README section "${heading}" not found.`);
